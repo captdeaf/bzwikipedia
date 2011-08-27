@@ -1,0 +1,5 @@
+pdata/rec*
+drop/enwiki-20110405-pages-articles.xml.bz2
+pdata/*.dat
+pdata/*.dat.new
+bzwikipedia
