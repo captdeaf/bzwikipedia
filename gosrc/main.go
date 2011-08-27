@@ -14,6 +14,7 @@ import (
   "strconv"
   "strings"
   "http"
+  "template"
 )
 
 // Settings.
@@ -24,6 +25,7 @@ var data_dir = "pdata"
 var title_file = "pdata/titlecache.dat"
 var dat_file = "pdata/bzwikipedia.dat"
 var web_dir  = "web"
+var wiki_template = "web/wiki.html"
 var curdbname string;
 
 func basename(fp string) string {
@@ -497,22 +499,45 @@ findEnd:
   return string(buffer.Bytes())
 }
 
+type WikiPage struct {
+  Title string
+  Body string
+}
+
+var WikiTemplate *template.Template
+
 func pageHandle(w http.ResponseWriter, req *http.Request) {
   // "/wiki/"
   pagetitle := req.URL.Path[6:]
 
+  newtpl, terr := template.ParseFile(wiki_template, nil)
+  if terr != nil {
+    fmt.Println("Error in template:", terr)
+  } else {
+    WikiTemplate = newtpl
+  }
+
   td, ok := title_map[pagetitle]
 
   if ok {
-    fmt.Fprintf(w, readTitle(td))
+    p := WikiPage{Title: pagetitle, Body: readTitle(td)}
+    err := WikiTemplate.Execute(w, &p)
+
+    if err != nil {
+      http.Error(w, err.String(), http.StatusInternalServerError)
+    }
   } else {
-    fmt.Fprintf(w, "No such Wiki Page '%s'\n", pagetitle)
+    http.Error(w, "No such Wiki Page", http.StatusNotFound)
   }
+
 }
 
 func main() {
   fmt.Println("Switching dir to", dirname(os.Args[0]))
   os.Chdir(dirname(os.Args[0]))
+
+  // Load the templates first.
+  WikiTemplate = template.MustParseFile(wiki_template, nil)
 
   // Check for any new databases, including initial startup, and
   // perform pre-processing.
@@ -524,7 +549,7 @@ func main() {
     return
   }
 
-  fmt.Println("Loaded!")
+  fmt.Println("Loaded! Preparing templates ...")
 
   fmt.Println("Starting Web server on port", listenport)
 

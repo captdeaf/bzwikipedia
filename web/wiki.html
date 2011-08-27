@@ -1,0 +1,15 @@
+<html>
+<head>
+<script type="text/javascript" src="/jquery.js"></script>
+<script type="text/javascript" src="/instaview.js"></script>
+</head>
+<body>
+<h1>{Title}</h1>
+<div style="display:none;" id="inbox">{Body}</div>
+<div id="outbox"></div>
+<script type="text/javascript">
+  var input = $('#inbox').text()
+  $('#outbox').html(InstaView.convert(input))
+</script>
+</body>
+</html>
