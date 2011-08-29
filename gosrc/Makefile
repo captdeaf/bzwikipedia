@@ -6,7 +6,7 @@ GO_LD = 6l
 GO_SUFFIX = 6
 
 GO_MAIN  = main.go
-GO_FILES = 
+GO_FILES = confparse.go
 
 PROG    = bzwikipedia
 GOFLAGS = -I . -I build

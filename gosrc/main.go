@@ -3,6 +3,7 @@
 package main
 
 import (
+  "confparse"
   "bytes"
   "bufio"
   "compress/bzip2"
@@ -19,13 +20,13 @@ import (
 
 // Settings.
 
-var listenport = ":2012"
-var drop_dir = "drop"
-var data_dir = "pdata"
-var title_file = "pdata/titlecache.dat"
-var dat_file = "pdata/bzwikipedia.dat"
-var web_dir  = "web"
-var wiki_template = "web/wiki.html"
+var listenport string
+var drop_dir string
+var data_dir string
+var title_file string
+var dat_file string
+var web_dir  string
+var wiki_template string
 var curdbname string;
 
 func basename(fp string) string {
@@ -532,9 +533,38 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
 
 }
 
+func parseConfig(confname string) {
+  // Default values.
+  listenport = ":2012"
+  drop_dir = "drop"
+  data_dir = "pdata"
+  title_file = "pdata/titlecache.dat"
+  dat_file = "pdata/bzwikipedia.dat"
+  web_dir  = "web"
+  wiki_template = "web/wiki.html"
+
+  conf, err := confparse.ParseFile(confname)
+  if err != nil {
+    fmt.Printf("Unable to read config file '%s'\n", confname)
+    return
+  }
+
+  fmt.Printf("Read config file '%s'\n", confname)
+
+  if conf["listen"] != "" { listenport = conf["listen"] }
+  if conf["drop_dir"] != "" { drop_dir = conf["drop_dir"] }
+  if conf["data_dir"] != "" { data_dir = conf["data_dir"] }
+  if conf["title_file"] != "" { title_file = conf["title_file"] }
+  if conf["dat_file"] != "" { dat_file = conf["dat_file"] }
+  if conf["web_dir"] != "" { web_dir = conf["web_dir"] }
+  if conf["wiki_template"] != "" { wiki_template = conf["wiki_template"] }
+}
+
 func main() {
   fmt.Println("Switching dir to", dirname(os.Args[0]))
   os.Chdir(dirname(os.Args[0]))
+
+  parseConfig("bzwikipedia.conf")
 
   // Load the templates first.
   WikiTemplate = template.MustParseFile(wiki_template, nil)
