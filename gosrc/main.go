@@ -300,6 +300,7 @@ func generateNewTitleFile() (string, string) {
       fmt.Println("Reading chunk", curindex)
     }
     str, err := bzr.ReadString()
+    if err == os.EOF { break }
     if err != nil {
       fmt.Printf("Error while reading chunk %v: %v\n", bzr.index, err)
       panic("Unrecoverable error.")
