@@ -516,6 +516,10 @@ var SearchTemplate *template.Template
 func searchHandle(w http.ResponseWriter, req *http.Request) {
   // "/search/"
   pagetitle := getTitle(req.URL.Path[8:])
+  if (len(pagetitle) < 4) {
+    fmt.Fprintf(w, "Search phrase too small for now.")
+    return
+  }
 
   ltitle := strings.ToLower(pagetitle)
 
