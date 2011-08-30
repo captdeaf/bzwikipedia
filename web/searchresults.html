@@ -1,0 +1,26 @@
+<html>
+<head>
+<script type="text/javascript" src="/jquery.js"></script>
+<script type="text/javascript" src="/instaview.js"></script>
+<link rel="stylesheet" type="text/css" href="/wikipedia1.css" />
+<link rel="stylesheet" type="text/css" href="/wikipedia2.css" />
+</head>
+<body>
+<div style="width: 800px; margin-left: auto; margin-right: auto;">
+<h1>Search Results for: "{Phrase}"</h1>
+</div>
+<div style="display:none;" id="inbox">{Results}</div>
+<div style="width: 800px; margin-left: auto; margin-right: auto;">
+ <ul id="outlist">
+ </ul>
+</div>
+<script type="text/javascript">
+  var input = $('#inbox');
+  allResults = input.split(/\|/);
+  var out = $('#outlist');
+  for (var i = 0; i < allResults.length; i++)
+    out.append('<li><a href="/wiki/' + allResults[i] + '">' + allResults[i] +
+               '</a></li>')
+</script>
+</body>
+</html>

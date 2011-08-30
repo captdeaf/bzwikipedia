@@ -234,7 +234,7 @@ func (sbz *SegmentedBzReader) ReadString() (string, os.Error) {
     return str, nil
   }
   if err != os.EOF {
-    fmt.Printf("Index %d: Non-EOF error!", sbz.index)
+    fmt.Printf("Index %d: Non-EOF error!\n", sbz.index)
     fmt.Println("str:", str)
     fmt.Println(err)
     panic("Unrecoverable error")
@@ -301,7 +301,8 @@ func generateNewTitleFile() (string, string) {
     }
     str, err := bzr.ReadString()
     if err != nil {
-      return "", ""
+      fmt.Printf("Error while reading chunk %v: %v\n", bzr.index, err)
+      panic("Unrecoverable error.")
     }
 
     var idx int
