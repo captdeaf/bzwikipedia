@@ -536,7 +536,7 @@ func searchHandle(w http.ResponseWriter, req *http.Request) {
   }
 
   p := SearchPage{Phrase: pagetitle, Results: strings.Join(results, "|")}
-  err := WikiTemplate.Execute(w, &p)
+  err := SearchTemplate.Execute(w, &p)
 
   if err != nil {
     http.Error(w, err.String(), http.StatusInternalServerError)
@@ -631,6 +631,8 @@ func main() {
 
   // /wiki/... are pages.
   http.HandleFunc("/wiki/", pageHandle)
+  // /search/ look for given text
+  http.HandleFunc("/search/", searchHandle)
 
   // Everything else is served from the web dir.
   http.Handle("/", http.FileServer(http.Dir(web_dir)))
