@@ -27,6 +27,7 @@ var title_file string
 var dat_file string
 var web_dir  string
 var wiki_template string
+var search_template string
 var curdbname string;
 
 func basename(fp string) string {
@@ -130,9 +131,7 @@ func cleanOldCache() {
 
   if len(recs) > 0 || len(tfs) > 0 || len(dfs) > 0 {
     fmt.Println("Old record and/or title cache file exist. Removing in 5 seconds ...")
-    // TODO: Uncomment sleep.
-    // time.Sleep(5000000000)
-    time.Sleep(100)
+    time.Sleep(5000000000)
   }
 
   if len(recs) > 0 {
@@ -346,12 +345,10 @@ func performUpdates() {
   }
 
   // Clean out old files if we need 'em to be.
-  // TODO: uncomment this.
-  // cleanOldCache()
+  cleanOldCache()
 
   // Turn the big old .xml.bz2 into a bunch of smaller .xml.bz2s
-  // TODO: uncomment this
-  // splitBz2File(recent)
+  splitBz2File(recent)
 
   curdbname = basename(recent)
 
@@ -500,6 +497,51 @@ findEnd:
   return string(buffer.Bytes())
 }
 
+func getTitle(str string) string {
+  // Turn foo_bar into foo bar. Strip leading and trailing spaces.
+  str = strings.TrimSpace(str)
+  str = strings.Replace(str, "_", " ", -1)
+  return str
+}
+
+type SearchPage struct {
+  Phrase string
+  Results string
+}
+
+var SearchTemplate *template.Template
+
+func searchHandle(w http.ResponseWriter, req *http.Request) {
+  // "/search/"
+  pagetitle := getTitle(req.URL.Path[8:])
+
+  ltitle := strings.ToLower(pagetitle)
+
+  allResults := []string{}
+  results := allResults[:]
+
+  // Search all keys
+  for key, _ := range title_map {
+    if strings.Contains(strings.ToLower(key), ltitle) {
+      results = append(results, key)
+    }
+  }
+
+  newtpl, terr := template.ParseFile(search_template, nil)
+  if terr != nil {
+    fmt.Println("Error in template:", terr)
+  } else {
+    SearchTemplate = newtpl
+  }
+
+  p := SearchPage{Phrase: pagetitle, Results: strings.Join(results, "|")}
+  err := WikiTemplate.Execute(w, &p)
+
+  if err != nil {
+    http.Error(w, err.String(), http.StatusInternalServerError)
+  }
+}
+
 type WikiPage struct {
   Title string
   Body string
@@ -509,7 +551,7 @@ var WikiTemplate *template.Template
 
 func pageHandle(w http.ResponseWriter, req *http.Request) {
   // "/wiki/"
-  pagetitle := req.URL.Path[6:]
+  pagetitle := getTitle(req.URL.Path[6:])
 
   newtpl, terr := template.ParseFile(wiki_template, nil)
   if terr != nil {
@@ -542,6 +584,7 @@ func parseConfig(confname string) {
   dat_file = "pdata/bzwikipedia.dat"
   web_dir  = "web"
   wiki_template = "web/wiki.html"
+  search_template = "web/searchresults.html"
 
   conf, err := confparse.ParseFile(confname)
   if err != nil {
@@ -558,6 +601,7 @@ func parseConfig(confname string) {
   if conf["dat_file"] != "" { dat_file = conf["dat_file"] }
   if conf["web_dir"] != "" { web_dir = conf["web_dir"] }
   if conf["wiki_template"] != "" { wiki_template = conf["wiki_template"] }
+  if conf["search_template"] != "" { search_template = conf["search_template"] }
 }
 
 func main() {
@@ -567,6 +611,7 @@ func main() {
   parseConfig("bzwikipedia.conf")
 
   // Load the templates first.
+  SearchTemplate = template.MustParseFile(search_template, nil)
   WikiTemplate = template.MustParseFile(wiki_template, nil)
 
   // Check for any new databases, including initial startup, and
