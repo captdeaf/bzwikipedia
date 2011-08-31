@@ -1,9 +1,12 @@
 # Makefile for bzwikipedia
 
+# Include go defaults
+include $(GOROOT)/src/Make.inc
+
 # Go compiler and linker.
-GO_CC = 6g
-GO_LD = 6l
-GO_SUFFIX = 6
+GO_CC = $(O)g
+GO_LD = $(O)l
+GO_SUFFIX = $(O)
 
 GO_MAIN  = main.go
 GO_FILES = confparse.go
