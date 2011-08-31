@@ -258,7 +258,8 @@ func (sbz *SegmentedBzReader) ReadString() (string, os.Error) {
   sbz.index += 1
   sbz.OpenNext()
 
-  if err == nil {
+  // Last file?
+  if err != nil || sbz.cfin == nil {
     return str, nil
   }
 
