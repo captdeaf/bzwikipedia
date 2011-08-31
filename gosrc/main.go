@@ -94,24 +94,34 @@ func needUpdate(recent string) bool {
   if err == nil {
     breader := bufio.NewReader(fin)
     line, err := breader.ReadString('\n')
-    if err != nil { goto badfile }
+    if err != nil {
+      fmt.Println("Title file has invalid version.")
+      return true
+    }
 
     matches = versionrx.FindStringSubmatch(line)
-    if matches == nil { goto badfile }
+    if matches == nil {
+      fmt.Println("Title file has invalid version.")
+      return true
+    }
 
     line, err = breader.ReadString('\n')
-    if err != nil { goto badfile }
+    if err != nil {
+      fmt.Println("Title file has invalid dbname.")
+      return true
+    }
 
     matches = dbnamerx.FindStringSubmatch(line)
-    if matches == nil { goto badfile }
+    if matches == nil {
+      fmt.Println("Title file has invalid format.")
+      return true
+    }
 
     cacheddbname = matches[1]
     if basename(cacheddbname) == basename(recent) {
       fmt.Println(recent, "matches cached database. No preparation needed.")
       return false
     }
-badfile:
-    fmt.Println("Title file has invalid format.")
   } else {
     fmt.Println("Title File doesn't exist.")
   }
@@ -347,10 +357,10 @@ func performUpdates() {
   }
 
   // Clean out old files if we need 'em to be.
-  cleanOldCache()
+  // cleanOldCache()
 
   // Turn the big old .xml.bz2 into a bunch of smaller .xml.bz2s
-  splitBz2File(recent)
+  // splitBz2File(recent)
 
   curdbname = basename(recent)
 
@@ -456,21 +466,18 @@ func readTitle(td TitleData) string {
   // Start looking for the title.
   bzr := NewBzReader(td.Start)
 
-findTitle:
   for ;; {
     str, err = bzr.ReadString()
     if err != nil { return "" }
     if strings.Contains(str, toFind) {
-      break findTitle
     }
   }
 
   toFind = "<text"
-findText:
   for ;; {
     str, err = bzr.ReadString()
     if err != nil { return "" }
-    if strings.Contains(str, toFind) { break findText }
+    if strings.Contains(str, toFind) { break }
   }
 
   // We found <text> in string. Capture everything after it.
@@ -485,11 +492,10 @@ findText:
   if matches != nil { fmt.Fprint(buffer, matches[1]) }
 
   toFind = "</text>"
-findEnd:
   for ;; {
     str, err = bzr.ReadString()
     if err != nil { return "" }
-    if strings.Contains(str, toFind) { break findEnd }
+    if strings.Contains(str, toFind) { break }
     fmt.Fprint(buffer, str)
   }
 
