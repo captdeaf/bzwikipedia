@@ -4,8 +4,8 @@
 include $(GOROOT)/src/Make.inc
 
 # Go compiler and linker.
-GO_CC = $(O)g
-GO_LD = $(O)l
+GO_CC = $(GC)
+GO_LD = $(LD)
 GO_SUFFIX = $(O)
 
 GO_MAIN  = main.go
