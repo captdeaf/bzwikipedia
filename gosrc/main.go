@@ -3,32 +3,33 @@
 package main
 
 import (
-  "confparse"
-  "bytes"
   "bufio"
+  "bytes"
   "compress/bzip2"
-  "os"
+  "confparse"
   "fmt"
-  "time"
-  "path/filepath"
-  "regexp"
-  "strconv"
-  "strings"
   "http"
-  "template"
+  "os"
+ "path/filepath"
+ "regexp"
+ "strconv"
+ "strings"
+ "template"
+ "time"
 )
 
-// Settings.
+// Settings, with default values.
+var listenport      = ":2012"
+var drop_dir        = "drop"
+var data_dir        = "pdata"
+var title_file      = "pdata/titlecache.dat"
+var dat_file        = "pdata/bzwikipedia.dat"
+var web_dir         = "web"
+var wiki_template   = "web/wiki.html"
+var search_template = "web/searchresults.html"
 
-var listenport string
-var drop_dir string
-var data_dir string
-var title_file string
-var dat_file string
-var web_dir  string
-var wiki_template string
-var search_template string
-var curdbname string;
+// current db name, if extant.
+var curdbname string
 
 func basename(fp string) string {
   return filepath.Base(fp)
@@ -74,6 +75,10 @@ func getRecentDb() string {
   recent := ""
   recentTimestamp := -1
   for _, fp := range dbs {
+    // In the event of a non-timestamped filename.
+    if (recent == "") {
+      recent = fp
+    }
     ts := fileTimestamp(fp)
     if ts > recentTimestamp {
       recentTimestamp = ts
@@ -274,31 +279,37 @@ func (sbz *SegmentedBzReader) Close() {
 // Generate the new title cache file.
 //
 func generateNewTitleFile() (string, string) {
-  // Create file.
+  // Create pdata/bzwikipedia.dat.
   dat_file_new := fmt.Sprintf("%v.new", dat_file)
   dfout, derr := os.OpenFile(dat_file_new, os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0666)
   if derr != nil {
-    fmt.Println("Unable to create", dat_file_new, ": ", derr)
+    fmt.Printf("Unable to create '%v': %v", dat_file_new, derr)
     return "", ""
   }
   defer dfout.Close()
 
+  // Create pdata/titlecache.dat.
   title_file_new := fmt.Sprintf("%v.new", title_file)
   fout, err := os.OpenFile(title_file_new, os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0666)
   if err != nil {
-    fmt.Println("Unable to create", title_file_new, ": ", err)
+    fmt.Printf("Unable to create '%v': %v", title_file_new, derr)
     return "", ""
   }
   defer fout.Close()
 
-  // Plop in version and dbname.
+  // Plop version and dbname into bzwikipedia.dat
   fmt.Fprintf(dfout, "version:1\n")
   fmt.Fprintf(dfout, "dbname:%v\n", curdbname)
 
   // Now read through all the bzip files looking for <title> bits.
   bzr := NewBzReader(1)
 
+  // We print a notice every 100 chunks, just 'cuz it's more user friendly
+  // to show _something_ going on.
   nextprint := 100
+
+  // Total # of records, so that we know how big to make the title_map
+  // when loading.
   record_count := 0
 
   titlerx := regexp.MustCompile("^ *<title>(.*)</title>")
@@ -335,19 +346,23 @@ func generateNewTitleFile() (string, string) {
 }
 
 ////// Title file format:
+// title -- startsegment
+
+////// bzwikipedia.dat file format:
 // version:1
 // dbname:enwiki-20110405-pages-articles.xml.bz2
-// title -- startsegment
+// rcount:12345
+// (rcount being record count.)
 
 //
 // Check if any updates to the cached files are needed, and perform
 // them if necessary.
 //
 func performUpdates() {
-  fmt.Println("Checking for new .xml.bz2 files in", drop_dir)
+  fmt.Printf("Checking for new .xml.bz2 files in '%v/'.", drop_dir)
   recent := getRecentDb()
   if recent == "" {
-    fmt.Println("No timestamped database exists in", drop_dir, ".")
+    fmt.Println("No available database exists in '%v/'.", drop_dir)
   }
   fmt.Println("Latest DB:", recent)
 
@@ -357,10 +372,10 @@ func performUpdates() {
   }
 
   // Clean out old files if we need 'em to be.
-  // cleanOldCache()
+  cleanOldCache()
 
   // Turn the big old .xml.bz2 into a bunch of smaller .xml.bz2s
-  // splitBz2File(recent)
+  splitBz2File(recent)
 
   curdbname = basename(recent)
 
@@ -589,14 +604,6 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
 
 func parseConfig(confname string) {
   // Default values.
-  listenport = ":2012"
-  drop_dir = "drop"
-  data_dir = "pdata"
-  title_file = "pdata/titlecache.dat"
-  dat_file = "pdata/bzwikipedia.dat"
-  web_dir  = "web"
-  wiki_template = "web/wiki.html"
-  search_template = "web/searchresults.html"
 
   conf, err := confparse.ParseFile(confname)
   if err != nil {
