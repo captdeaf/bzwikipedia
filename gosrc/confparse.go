@@ -38,16 +38,20 @@ func ParseIO(in io.Reader, data map[string]string) (err os.Error) {
 	inBuf := bufio.NewReader(in)
 
 	for {
-                line, err := inBuf.ReadString('\n')
-                k, v := keyValue(line)
-                if v != "" {
-                  data[k] = v
-                }
+		line, err := inBuf.ReadString('\n')
+		k, v := keyValue(line)
+		if v != "" {
+			data[k] = v
+		}
 
-                if err == os.EOF { return nil }
-                if err != nil { return err }
+		if err == os.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
 	}
-        return nil
+	return nil
 }
 
 func keyValue(in string) (key, value string) {
@@ -63,5 +67,5 @@ func keyValue(in string) (key, value string) {
 	if key[0] == '#' {
 		return "", ""
 	}
-        return
+	return
 }
