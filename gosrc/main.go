@@ -235,14 +235,15 @@ func (sbz *SegmentedBzReader) OpenNext() {
   if err != nil {
     sbz.cfin = nil
     sbz.bfin = nil
+  } else {
+    sbz.cfin = cfin
+    sbz.bfin = bufio.NewReader(bzip2.NewReader(cfin))
   }
-  sbz.cfin = cfin
-  sbz.bfin = bufio.NewReader(bzip2.NewReader(cfin))
 }
 
 func (sbz *SegmentedBzReader) ReadString() (string, os.Error) {
   if sbz.bfin == nil {
-    return "", nil
+    return "", os.EOF
   }
   str, err := sbz.bfin.ReadString('\n')
   if err == nil {
@@ -250,8 +251,7 @@ func (sbz *SegmentedBzReader) ReadString() (string, os.Error) {
   }
   if err != os.EOF {
     fmt.Printf("Index %d: Non-EOF error!\n", sbz.index)
-    fmt.Println("str:", str)
-    fmt.Println(err)
+    fmt.Printf("str: '%v' err: '%v'\n", str, err)
     panic("Unrecoverable error")
   }
 
@@ -327,6 +327,9 @@ func generateNewTitleFile() (string, string) {
       fmt.Printf("Error while reading chunk %v: %v\n", bzr.index, err)
       panic("Unrecoverable error.")
     }
+
+    // This accounts for both "" and is a quick optimization.
+    if len(str) < 10 { continue }
 
     var idx int
 
