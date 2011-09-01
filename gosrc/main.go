@@ -208,11 +208,11 @@ func splitBz2File(recent string) {
 
 	bz2recover, err := os.StartProcess(executable, args, &environ)
 
-	switch err {
+	switch t := err.(type) {
 	default:
-		fmt.Println("err is:", err)
+		fmt.Printf("err is: %T: %#v %#v\n", err, err, os.ENOENT)
 		panic("Unable to run bzip2recover? err is ")
-	case os.ENOENT:
+	case *os.PathError:
 		//Maybe this should fmt and exit.
 		//Does defer handle exit right?
 		panic("bzip2recover not found. Giving up.")
