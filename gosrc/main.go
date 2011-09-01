@@ -18,18 +18,11 @@ import (
 	"time"
 )
 
-// Settings, with default values.
-var listenport = ":2012"
-var drop_dir = "drop"
-var data_dir = "pdata"
-var title_file = "pdata/titlecache.dat"
-var dat_file = "pdata/bzwikipedia.dat"
-var web_dir = "web"
-var wiki_template = "web/wiki.html"
-var search_template = "web/searchresults.html"
-
 // current db name, if extant.
 var curdbname string
+
+// global config variable
+var conf map[string]string
 
 func basename(fp string) string {
 	return filepath.Base(fp)
@@ -75,7 +68,7 @@ func fileTimestamp(fp string) int {
 // *.xml.bz2 file that exists, and return it.
 //
 func getRecentDb() string {
-	dbs, _ := filepath.Glob(filepath.Join(drop_dir, "*.xml.bz2"))
+	dbs, _ := filepath.Glob(filepath.Join(conf["drop_dir"], "*.xml.bz2"))
 	recent := ""
 	recentTimestamp := -1
 	for _, fp := range dbs {
@@ -96,7 +89,7 @@ var versionrx = regexp.MustCompile("^version:([0-9]+)")
 var dbnamerx = regexp.MustCompile("^dbname:(.*\\.xml\\.bz2)")
 
 func needUpdate(recent string) bool {
-	fin, err := os.Open(dat_file)
+	fin, err := os.Open(conf["dat_file"])
 	var matches []string
 	var cacheddbname string
 
@@ -141,9 +134,9 @@ func needUpdate(recent string) bool {
 // Clear out any old rec*.xml.bz2 or titlecache.txt files
 //
 func cleanOldCache() {
-	recs, _ := filepath.Glob(filepath.Join(data_dir, "rec*.xml.bz2"))
-	tfs, _ := filepath.Glob(title_file)
-	dfs, _ := filepath.Glob(dat_file)
+	recs, _ := filepath.Glob(filepath.Join(conf["data_dir"], "rec*.xml.bz2"))
+	tfs, _ := filepath.Glob(conf["title_file"])
+	dfs, _ := filepath.Glob(conf["dat_file"])
 
 	// If any old record or title cache files exist, give the user an opportunity
 	// to ctrl-c to cancel this.
@@ -183,7 +176,7 @@ func splitBz2File(recent string) {
 	// Move the recent db over to the data dir since bzip2recover extracts
 	// to the same directory the db exists in, and we don't want to pollute
 	// drop_dir with the rec*.xml.bz2 files.
-	newpath := filepath.Join(data_dir, basename(recent))
+	newpath := filepath.Join(conf["data_dir"], basename(recent))
 	os.Rename(recent, newpath)
 
 	// Make sure that we move it _back_ to drop dir, no matter what happens.
@@ -234,7 +227,7 @@ func (sbz *SegmentedBzReader) OpenNext() {
 		sbz.cfin = nil
 		sbz.bfin = nil
 	}
-	fn := fmt.Sprintf("%v/rec%05d%v", data_dir, sbz.index, curdbname)
+	fn := fmt.Sprintf("%v/rec%05d%v", conf["data_dir"], sbz.index, curdbname)
 	cfin, err := os.Open(fn)
 	if err != nil {
 		sbz.cfin = nil
@@ -285,7 +278,7 @@ func (sbz *SegmentedBzReader) Close() {
 //
 func generateNewTitleFile() (string, string) {
 	// Create pdata/bzwikipedia.dat.
-	dat_file_new := fmt.Sprintf("%v.new", dat_file)
+	dat_file_new := fmt.Sprintf("%v.new", conf["dat_file"])
 	dfout, derr := os.OpenFile(dat_file_new, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if derr != nil {
 		fmt.Printf("Unable to create '%v': %v", dat_file_new, derr)
@@ -294,7 +287,7 @@ func generateNewTitleFile() (string, string) {
 	defer dfout.Close()
 
 	// Create pdata/titlecache.dat.
-	title_file_new := fmt.Sprintf("%v.new", title_file)
+	title_file_new := fmt.Sprintf("%v.new", conf["title_file"])
 	fout, err := os.OpenFile(title_file_new, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		fmt.Printf("Unable to create '%v': %v", title_file_new, derr)
@@ -372,10 +365,10 @@ func generateNewTitleFile() (string, string) {
 // them if necessary.
 //
 func performUpdates() {
-	fmt.Printf("Checking for new .xml.bz2 files in '%v/'.", drop_dir)
+	fmt.Printf("Checking for new .xml.bz2 files in '%v/'.", conf["drop_dir"])
 	recent := getRecentDb()
 	if recent == "" {
-		fmt.Println("No available database exists in '%v/'.", drop_dir)
+		fmt.Println("No available database exists in '%v/'.", conf["drop_dir"])
 	}
 	fmt.Println("Latest DB:", recent)
 
@@ -396,8 +389,8 @@ func performUpdates() {
 	newtitlefile, newdatfile := generateNewTitleFile()
 
 	// Rename them to the actual title and dat file
-	os.Rename(newtitlefile, title_file)
-	os.Rename(newdatfile, dat_file)
+	os.Rename(newtitlefile, conf["title_file"])
+	os.Rename(newdatfile, conf["dat_file"])
 
 	// We have now completed pre-processing! Yay!
 }
@@ -412,7 +405,7 @@ var record_count int
 
 func loadTitleFile() bool {
 	// Open the dat file.
-	dfin, derr := os.Open(dat_file)
+	dfin, derr := os.Open(conf["dat_file"])
 	if derr != nil {
 		fmt.Println(derr)
 		return false
@@ -465,7 +458,7 @@ func loadTitleFile() bool {
 	title_map = make(map[string]TitleData, record_count+1)
 
 	// Read in the titles.
-	fin, err := os.Open(title_file)
+	fin, err := os.Open(conf["title_file"])
 	if err != nil {
 		fmt.Println(err)
 		return false
@@ -608,7 +601,7 @@ func searchHandle(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	newtpl, terr := template.ParseFile(search_template, nil)
+	newtpl, terr := template.ParseFile(conf["search_template"], nil)
 	if terr != nil {
 		fmt.Println("Error in template:", terr)
 	} else {
@@ -634,7 +627,7 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
 	// "/wiki/"
 	pagetitle := getTitle(req.URL.Path[6:])
 
-	newtpl, terr := template.ParseFile(wiki_template, nil)
+	newtpl, terr := template.ParseFile(conf["wiki_template"], nil)
 	if terr != nil {
 		fmt.Println("Error in template:", terr)
 	} else {
@@ -656,52 +649,42 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func parseConfig(confname string) {
-	// Default values.
+func parseConfig(confname string) map[string]string {
+	config := map[string]string{
+		"listenport":      ":2012",
+		"drop_dir":        "drop",
+		"data_dir":        "pdata",
+		"title_file":      "pdata/titlecache.dat",
+		"dat_file":        "pdata/bzwikipedia.dat",
+		"web_dir":         "web",
+		"wiki_template":   "web/wiki.html",
+		"search_template": "web/searchresults.html",
+	}
 
-	conf, err := confparse.ParseFile(confname)
+	fromfile, err := confparse.ParseFile(confname)
 	if err != nil {
 		fmt.Printf("Unable to read config file '%s'\n", confname)
-		return
+		return config
 	}
 
 	fmt.Printf("Read config file '%s'\n", confname)
 
-	if conf["listen"] != "" {
-		listenport = conf["listen"]
+	for key, value := range fromfile {
+		config[key] = value
 	}
-	if conf["drop_dir"] != "" {
-		drop_dir = conf["drop_dir"]
-	}
-	if conf["data_dir"] != "" {
-		data_dir = conf["data_dir"]
-	}
-	if conf["title_file"] != "" {
-		title_file = conf["title_file"]
-	}
-	if conf["dat_file"] != "" {
-		dat_file = conf["dat_file"]
-	}
-	if conf["web_dir"] != "" {
-		web_dir = conf["web_dir"]
-	}
-	if conf["wiki_template"] != "" {
-		wiki_template = conf["wiki_template"]
-	}
-	if conf["search_template"] != "" {
-		search_template = conf["search_template"]
-	}
+
+	return config
 }
 
 func main() {
 	fmt.Println("Switching dir to", dirname(os.Args[0]))
 	os.Chdir(dirname(os.Args[0]))
 
-	parseConfig("bzwikipedia.conf")
+	conf = parseConfig("bzwikipedia.conf")
 
 	// Load the templates first.
-	SearchTemplate = template.MustParseFile(search_template, nil)
-	WikiTemplate = template.MustParseFile(wiki_template, nil)
+	SearchTemplate = template.MustParseFile(conf["search_template"], nil)
+	WikiTemplate = template.MustParseFile(conf["wiki_template"], nil)
 
 	// Check for any new databases, including initial startup, and
 	// perform pre-processing.
@@ -715,7 +698,7 @@ func main() {
 
 	fmt.Println("Loaded! Preparing templates ...")
 
-	fmt.Println("Starting Web server on port", listenport)
+	fmt.Println("Starting Web server on port", conf["listenport"])
 
 	// /wiki/... are pages.
 	http.HandleFunc("/wiki/", pageHandle)
@@ -723,9 +706,9 @@ func main() {
 	http.HandleFunc("/search/", searchHandle)
 
 	// Everything else is served from the web dir.
-	http.Handle("/", http.FileServer(http.Dir(web_dir)))
+	http.Handle("/", http.FileServer(http.Dir(conf["web_dir"])))
 
-	err := http.ListenAndServe(listenport, nil)
+	err := http.ListenAndServe(conf["listenport"], nil)
 	if err != nil {
 		fmt.Println("Fatal error:", err.String())
 	}
