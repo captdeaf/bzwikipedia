@@ -22,7 +22,16 @@ import (
 var curdbname string
 
 // global config variable
-var conf map[string]string
+var conf = map[string]string {
+	"listen":      ":2012",
+	"drop_dir":        "drop",
+	"data_dir":        "pdata",
+	"title_file":      "pdata/titlecache.dat",
+	"dat_file":        "pdata/bzwikipedia.dat",
+	"web_dir":         "web",
+	"wiki_template":   "web/wiki.html",
+	"search_template": "web/searchresults.html",
+}
 
 func basename(fp string) string {
 	return filepath.Base(fp)
@@ -649,38 +658,29 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func parseConfig(confname string) map[string]string {
-	config := map[string]string{
-		"listenport":      ":2012",
-		"drop_dir":        "drop",
-		"data_dir":        "pdata",
-		"title_file":      "pdata/titlecache.dat",
-		"dat_file":        "pdata/bzwikipedia.dat",
-		"web_dir":         "web",
-		"wiki_template":   "web/wiki.html",
-		"search_template": "web/searchresults.html",
-	}
-
+func parseConfig(confname string) {
 	fromfile, err := confparse.ParseFile(confname)
 	if err != nil {
 		fmt.Printf("Unable to read config file '%s'\n", confname)
-		return config
+		return
 	}
 
 	fmt.Printf("Read config file '%s'\n", confname)
 
 	for key, value := range fromfile {
-		config[key] = value
+		if conf[key] == "" {
+		  fmt.Printf("Unknown config key: '%v'\n", key)
+		} else {
+		  conf[key] = value
+		}
 	}
-
-	return config
 }
 
 func main() {
 	fmt.Println("Switching dir to", dirname(os.Args[0]))
 	os.Chdir(dirname(os.Args[0]))
 
-	conf = parseConfig("bzwikipedia.conf")
+	parseConfig("bzwikipedia.conf")
 
 	// Load the templates first.
 	SearchTemplate = template.MustParseFile(conf["search_template"], nil)
@@ -698,7 +698,7 @@ func main() {
 
 	fmt.Println("Loaded! Preparing templates ...")
 
-	fmt.Println("Starting Web server on port", conf["listenport"])
+	fmt.Println("Starting Web server on port", conf["listen"])
 
 	// /wiki/... are pages.
 	http.HandleFunc("/wiki/", pageHandle)
@@ -708,7 +708,7 @@ func main() {
 	// Everything else is served from the web dir.
 	http.Handle("/", http.FileServer(http.Dir(conf["web_dir"])))
 
-	err := http.ListenAndServe(conf["listenport"], nil)
+	err := http.ListenAndServe(conf["listen"], nil)
 	if err != nil {
 		fmt.Println("Fatal error:", err.String())
 	}
