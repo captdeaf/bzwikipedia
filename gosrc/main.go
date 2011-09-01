@@ -205,7 +205,7 @@ func splitBz2File(recent string) {
 type SegmentedBzReader struct {
   index int
   bfin  *bufio.Reader
-  cfin *os.File;
+  cfin *os.File
 }
 
 //
@@ -485,14 +485,14 @@ func readTitle(td TitleData) string {
   // Start looking for the title.
   bzr := NewBzReader(td.Start)
 
-  for ;; {
+  for {
     str, err = bzr.ReadString()
     if err != nil { return "" }
     if strings.Contains(str, toFind) { break }
   }
 
   toFind = "<text"
-  for ;; {
+  for {
     str, err = bzr.ReadString()
     if err != nil { return "" }
     if strings.Contains(str, toFind) { break }
@@ -510,7 +510,7 @@ func readTitle(td TitleData) string {
   if matches != nil { fmt.Fprint(buffer, matches[1]) }
 
   toFind = "</text>"
-  for ;; {
+  for {
     str, err = bzr.ReadString()
     if err != nil { return "" }
     if strings.Contains(str, toFind) { break }
@@ -597,7 +597,7 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
     err := WikiTemplate.Execute(w, &p)
 
     if err != nil {
-      http.Error(w, err.String(), http.StatusInternalServerError)
+      fmt.Printf("Error with WikiTemplate.Execute: '%v'\n", err)
     }
   } else {
     http.Error(w, "No such Wiki Page", http.StatusNotFound)
