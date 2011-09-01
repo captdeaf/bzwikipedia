@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"compress/bzip2"
 	"confparse"
+	"exec"
 	"fmt"
 	"http"
 	"os"
@@ -22,8 +23,8 @@ import (
 var curdbname string
 
 // global config variable
-var conf = map[string]string {
-	"listen":      ":2012",
+var conf = map[string]string{
+	"listen":          ":2012",
 	"drop_dir":        "drop",
 	"data_dir":        "pdata",
 	"title_file":      "pdata/titlecache.dat",
@@ -193,17 +194,28 @@ func splitBz2File(recent string) {
 
 	args := []string{"bzip2recover", newpath}
 
+	executable, patherr := exec.LookPath("bzip2recover")
+	if patherr != nil {
+		fmt.Println("bzip2recover not found anywhere in your path, making wild guess")
+		executable = "/usr/bin/bz2recover"
+	}
+
 	environ := os.ProcAttr{
 		Dir:   ".",
 		Env:   os.Environ(),
 		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
 	}
 
-	bz2recover, err := os.StartProcess("/usr/bin/bzip2recover", args, &environ)
+	bz2recover, err := os.StartProcess(executable, args, &environ)
 
-	if err != nil {
+	switch err {
+	default:
 		fmt.Println("err is:", err)
 		panic("Unable to run bzip2recover? err is ")
+	case os.ENOENT:
+		//Maybe this should fmt and exit.
+		//Does defer handle exit right?
+		panic("bzip2recover not found. Giving up.")
 	}
 	bz2recover.Wait(0)
 }
@@ -669,9 +681,9 @@ func parseConfig(confname string) {
 
 	for key, value := range fromfile {
 		if conf[key] == "" {
-		  fmt.Printf("Unknown config key: '%v'\n", key)
+			fmt.Printf("Unknown config key: '%v'\n", key)
 		} else {
-		  conf[key] = value
+			conf[key] = value
 		}
 	}
 }
