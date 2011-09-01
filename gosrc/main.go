@@ -488,8 +488,7 @@ func readTitle(td TitleData) string {
   for ;; {
     str, err = bzr.ReadString()
     if err != nil { return "" }
-    if strings.Contains(str, toFind) {
-    }
+    if strings.Contains(str, toFind) { break }
   }
 
   toFind = "<text"
