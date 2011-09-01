@@ -648,7 +648,7 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
 		err := WikiTemplate.Execute(w, &p)
 
 		if err != nil {
-			http.Error(w, err.String(), http.StatusInternalServerError)
+			fmt.Printf("Error with WikiTemplate.Execute: '%v'\n", err)
 		}
 	} else {
 		http.Error(w, "No such Wiki Page", http.StatusNotFound)

@@ -46,10 +46,10 @@ var DataFormatters = {
 };
 
 $(document).ready(function() {
-  var input = $('#inbox').text()
+  var input = $('#inbox').text();
 
   // Use the InstaView converter to cover _most_ of the formatting stuff.
-  input = InstaView.convert(input)
+  input = InstaView.convert(input);
 
   // InstaView doesn't handle everything, though, so code here handles
   // the rest. (Or at least, what I know of what's left)
@@ -57,9 +57,6 @@ $(document).ready(function() {
   // Handle {{...}}:
   function replace_curlies(regexp, str, cb) {
     if (!str) { return ""; }
-    if (str.match(/^Info/)) {
-      alert("Matched info something: " + str)
-    }
     return str.replace(regexp, function(full, contents) {
       var m = contents.match(/^\s*(\w+)\s*(?:\|\s*)?(.*)$/)
       if (m && DataFormatters[m[1].toLowerCase()]) {
@@ -70,12 +67,8 @@ $(document).ready(function() {
   }
 
   input = input.replace(/[\r\n]/g,'');
-  input = replace_curlies(/\{\{((?:[^{}]+|\{\{[^{}]+\}\})*)\}\}/g,
-                          input, function(s) {
-                            return replace_curlies(/\{\{([^{}]+)\}\}/g, s,
-                              function(y) { return y; });
-                          });
   input = replace_curlies(/\{\{([^{}]+)\}\}/g, input, function(s) { return s });
+  // For just one round of curlies inside curlies.
   input = replace_curlies(/\{\{([^{}]+)\}\}/g, input, function(s) { return s });
 
   $('#outbox').html(input)
