@@ -3,11 +3,7 @@ bzwikipedia:
   Serve wikimedia (Wikipedia, Wiktionary, Wikinews, etc) format websites from
   xml.bz2 compressed files.
 
-  Currently, values are hard coded, but I'll be adding config file support
-  eventually-ish.
- 
-  Things should work out of the box on anything that has a Go compiler. 6g
-  is the currently configured compiler, to change it, edit gosrc/Makefile
+  Things should work out of the box on anything that has a Go compiler.
 
   WARNING: Still under development. It's ugly, and there's just raw text dumps
   of the wiki/ data, but it works!

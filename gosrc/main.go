@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"compress/bzip2"
 	"confparse"
+	"exec"
 	"fmt"
 	"http"
 	"os"
@@ -22,8 +23,8 @@ import (
 var curdbname string
 
 // global config variable
-var conf = map[string]string {
-	"listen":      ":2012",
+var conf = map[string]string{
+	"listen":          ":2012",
 	"drop_dir":        "drop",
 	"data_dir":        "pdata",
 	"title_file":      "pdata/titlecache.dat",
@@ -186,12 +187,26 @@ func splitBz2File(recent string) {
 	// to the same directory the db exists in, and we don't want to pollute
 	// drop_dir with the rec*.xml.bz2 files.
 	newpath := filepath.Join(conf["data_dir"], basename(recent))
-	os.Rename(recent, newpath)
+	err := os.Rename(recent, newpath)
+
+	if err != nil {
+		if e, ok := err.(*os.LinkError); ok && e.Error == os.EXDEV {
+			panic(GracefulError("Your source file must be on the same partition as your target dir. Sorry."))
+		} else {
+			panic(fmt.Sprintf("rename: %T %#v\n", err, err))
+		}
+	}
 
 	// Make sure that we move it _back_ to drop dir, no matter what happens.
 	defer os.Rename(newpath, recent)
 
 	args := []string{"bzip2recover", newpath}
+
+	executable, patherr := exec.LookPath("bzip2recover")
+	if patherr != nil {
+		fmt.Println("bzip2recover not found anywhere in your path, making wild guess")
+		executable = "/usr/bin/bz2recover"
+	}
 
 	environ := os.ProcAttr{
 		Dir:   ".",
@@ -199,10 +214,18 @@ func splitBz2File(recent string) {
 		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
 	}
 
-	bz2recover, err := os.StartProcess("/usr/bin/bzip2recover", args, &environ)
+	bz2recover, err := os.StartProcess(executable, args, &environ)
 
-	if err != nil {
-		fmt.Println("err is:", err)
+	switch t := err.(type) {
+	case *os.PathError:
+		if err.(*os.PathError).Error == os.ENOENT {
+			panic(GracefulError("bzip2recover not found. Giving up."))
+		} else {
+			fmt.Printf("err is: %T: %#v\n", err, err)
+			panic("Unable to run bzip2recover? err is ")
+		}
+	default:
+		fmt.Printf("err is: %T: %#v\n", err, err)
 		panic("Unable to run bzip2recover? err is ")
 	}
 	bz2recover.Wait(0)
@@ -669,14 +692,31 @@ func parseConfig(confname string) {
 
 	for key, value := range fromfile {
 		if conf[key] == "" {
-		  fmt.Printf("Unknown config key: '%v'\n", key)
+			fmt.Printf("Unknown config key: '%v'\n", key)
 		} else {
-		  conf[key] = value
+			conf[key] = value
 		}
 	}
 }
 
+type GracefulError string
+
 func main() {
+	// Defer this first to ensure cleanup gets done properly
+	// 
+	// Any error of type GracefulError is handled with an exit(1)
+	// rather than by handing the user a backtrace.
+	defer func() {
+		problem := recover()
+		switch problem.(type) {
+		case GracefulError:
+			fmt.Println(problem)
+			os.Exit(1)
+		default:
+			panic(problem)
+		}
+	}()
+
 	fmt.Println("Switching dir to", dirname(os.Args[0]))
 	os.Chdir(dirname(os.Args[0]))
 
