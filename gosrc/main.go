@@ -189,11 +189,12 @@ func splitBz2File(recent string) {
 	newpath := filepath.Join(conf["data_dir"], basename(recent))
 	err := os.Rename(recent, newpath)
 
-	switch t := err.(type) {
-	case *os.LinkError:
-		panic(GracefulError("Your source file must be on the same partition as your target dir. Sorry."))
-	default:
-		panic(fmt.Sprintf("rename: %T %#v\n", err, err))
+	if err != nil {
+		if e, ok := err.(*os.LinkError); ok && e.Error == os.EXDEV {
+			panic(GracefulError("Your source file must be on the same partition as your target dir. Sorry."))
+		} else {
+			panic(fmt.Sprintf("rename: %T %#v\n", err, err))
+		}
 	}
 
 	// Make sure that we move it _back_ to drop dir, no matter what happens.
@@ -216,11 +217,16 @@ func splitBz2File(recent string) {
 	bz2recover, err := os.StartProcess(executable, args, &environ)
 
 	switch t := err.(type) {
-	default:
-		fmt.Printf("err is: %T: %#v %#v\n", err, err, os.ENOENT)
-		panic("Unable to run bzip2recover? err is ")
 	case *os.PathError:
-		panic(GracefulError("bzip2recover not found. Giving up."))
+		if err.(*os.PathError).Error == os.ENOENT {
+			panic(GracefulError("bzip2recover not found. Giving up."))
+		} else {
+			fmt.Printf("err is: %T: %#v\n", err, err)
+			panic("Unable to run bzip2recover? err is ")
+		}
+	default:
+		fmt.Printf("err is: %T: %#v\n", err, err)
+		panic("Unable to run bzip2recover? err is ")
 	}
 	bz2recover.Wait(0)
 }
