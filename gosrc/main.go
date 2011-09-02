@@ -187,7 +187,14 @@ func splitBz2File(recent string) {
 	// to the same directory the db exists in, and we don't want to pollute
 	// drop_dir with the rec*.xml.bz2 files.
 	newpath := filepath.Join(conf["data_dir"], basename(recent))
-	os.Rename(recent, newpath)
+	err := os.Rename(recent, newpath)
+
+	switch t := err.(type) {
+	case *os.LinkError:
+		panic(GracefulError("Your source file must be on the same partition as your target dir. Sorry."))
+	default:
+		panic(fmt.Sprintf("rename: %T %#v\n", err, err))
+	}
 
 	// Make sure that we move it _back_ to drop dir, no matter what happens.
 	defer os.Rename(newpath, recent)
@@ -213,9 +220,7 @@ func splitBz2File(recent string) {
 		fmt.Printf("err is: %T: %#v %#v\n", err, err, os.ENOENT)
 		panic("Unable to run bzip2recover? err is ")
 	case *os.PathError:
-		//Maybe this should fmt and exit.
-		//Does defer handle exit right?
-		panic("bzip2recover not found. Giving up.")
+		panic(GracefulError("bzip2recover not found. Giving up."))
 	}
 	bz2recover.Wait(0)
 }
@@ -688,7 +693,24 @@ func parseConfig(confname string) {
 	}
 }
 
+type GracefulError string
+
 func main() {
+	// Defer this first to ensure cleanup gets done properly
+	// 
+	// Any error of type GracefulError is handled with an exit(1)
+	// rather than by handing the user a backtrace.
+	defer func() {
+		problem := recover()
+		switch problem.(type) {
+		case GracefulError:
+			fmt.Println(problem)
+			os.Exit(1)
+		default:
+			panic(problem)
+		}
+	}()
+
 	fmt.Println("Switching dir to", dirname(os.Args[0]))
 	os.Chdir(dirname(os.Args[0]))
 
