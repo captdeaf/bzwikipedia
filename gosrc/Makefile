@@ -9,7 +9,7 @@ GO_LD = $(LD)
 GO_SUFFIX = $(O)
 
 GO_MAIN  = main.go
-GO_FILES = confparse.go
+GO_FILES = confparse.go bzreader.go
 
 PROG    = bzwikipedia
 GOFLAGS = -I . -I build

@@ -5,7 +5,7 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"compress/bzip2"
+        "bzreader"
 	"confparse"
 	"exec"
 	"fmt"
@@ -13,6 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+        "runtime"
+        "sort"
 	"strconv"
 	"strings"
 	"template"
@@ -21,6 +23,9 @@ import (
 
 // current db name, if extant.
 var curdbname string
+
+// Current cache version.
+var current_cache_version = 2
 
 // global config variable
 var conf = map[string]string{
@@ -98,46 +103,59 @@ func getRecentDb() string {
 var versionrx = regexp.MustCompile("^version:([0-9]+)")
 var dbnamerx = regexp.MustCompile("^dbname:(.*\\.xml\\.bz2)")
 
-func needUpdate(recent string) bool {
+//
+// dosplit, docache := needUpdate()
+// If dosplit is true, then call bzip2recover.
+// If docache is true, then the title cache file needs to
+// be regenerated.
+//
+func needUpdate(recent string) (bool, bool) {
 	fin, err := os.Open(conf["dat_file"])
 	var matches []string
 	var cacheddbname string
+        version := 0
 
 	if err == nil {
 		breader := bufio.NewReader(fin)
 		line, err := breader.ReadString('\n')
 		if err != nil {
-			fmt.Println("Title file has invalid version.")
-			return true
+			fmt.Println("Dat file has invalid format.")
+			return true, true
 		}
 
 		matches = versionrx.FindStringSubmatch(line)
 		if matches == nil {
-			fmt.Println("Title file has invalid version.")
-			return true
+                        version, err = strconv.Atoi(matches[2])
+			fmt.Println("Dat file has invalid version.")
+			return true, true
 		}
 
 		line, err = breader.ReadString('\n')
 		if err != nil {
-			fmt.Println("Title file has invalid dbname.")
-			return true
+			fmt.Println("Dat file has invalid format.")
+			return true, true
 		}
 
 		matches = dbnamerx.FindStringSubmatch(line)
 		if matches == nil {
-			fmt.Println("Title file has invalid format.")
-			return true
+			fmt.Println("Dat file has invalid format.")
+			return true, true
 		}
 
 		cacheddbname = matches[1]
 		if basename(cacheddbname) == basename(recent) {
 			fmt.Println(recent, "matches cached database. No preparation needed.")
-			return false
+                        // The .bz2 records exist, but we may need to
+                        // regenerate the title cache file.
+                        if version < current_cache_version {
+                          return false, true
+                        }
+			return false, false
 		}
 	} else {
-		fmt.Println("Title File doesn't exist.")
+		fmt.Println("Dat File doesn't exist.")
 	}
-	return true
+	return true, true
 }
 
 //
@@ -178,6 +196,10 @@ func cleanOldCache() {
 	}
 }
 
+//
+// Copy the big database into the data/ dir, bzip2recover to split it into
+// rec#####dbname.bz2, and move the big database back to the drop dir.
+//
 func splitBz2File(recent string) {
 	// Be user friendly: Alert the user and wait a few seconds."
 	fmt.Println("I will be using bzip2recover to split", recent, "into many smaller files.")
@@ -216,93 +238,41 @@ func splitBz2File(recent string) {
 
 	bz2recover, err := os.StartProcess(executable, args, &environ)
 
-	switch t := err.(type) {
-	case *os.PathError:
-		if err.(*os.PathError).Error == os.ENOENT {
-			panic(GracefulError("bzip2recover not found. Giving up."))
-		} else {
-			fmt.Printf("err is: %T: %#v\n", err, err)
-			panic("Unable to run bzip2recover? err is ")
-		}
-	default:
-		fmt.Printf("err is: %T: %#v\n", err, err)
-		panic("Unable to run bzip2recover? err is ")
-	}
+        if err != nil {
+          switch t := err.(type) {
+          case *os.PathError:
+                  if err.(*os.PathError).Error == os.ENOENT {
+                          panic(GracefulError("bzip2recover not found. Giving up."))
+                  } else {
+                          fmt.Printf("err is: %T: %#v\n", err, err)
+                          panic("Unable to run bzip2recover? err is ")
+                  }
+          default:
+                  fmt.Printf("err is: %T: %#v\n", err, err)
+                  panic("Unable to run bzip2recover? err is ")
+          }
+        }
 	bz2recover.Wait(0)
 }
 
-type SegmentedBzReader struct {
-	index int
-	bfin  *bufio.Reader
-	cfin  *os.File
+type TitleData struct {
+	Title string
+	Start int
 }
 
-//
-// This will sequentially read .bz2 files starting from a given index.
-//
-func NewBzReader(index int) *SegmentedBzReader {
-	sbz := new(SegmentedBzReader)
-	sbz.index = index
-	sbz.bfin = nil
-	sbz.cfin = nil
+type tdlist []TitleData
 
-	sbz.OpenNext()
-	return sbz
+func (tds tdlist) Len() int {
+  return len(tds)
 }
-
-//
-// Open rec<index>dbname.xml.bz2 for reading
-//
-func (sbz *SegmentedBzReader) OpenNext() {
-	if sbz.cfin != nil {
-		sbz.cfin.Close()
-		sbz.cfin = nil
-		sbz.bfin = nil
-	}
-	fn := fmt.Sprintf("%v/rec%05d%v", conf["data_dir"], sbz.index, curdbname)
-	cfin, err := os.Open(fn)
-	if err != nil {
-		sbz.cfin = nil
-		sbz.bfin = nil
-	} else {
-		sbz.cfin = cfin
-		sbz.bfin = bufio.NewReader(bzip2.NewReader(cfin))
-	}
+func (tds tdlist) Less(a, b int) bool {
+  return tds[a].Title < tds[b].Title
 }
-
-func (sbz *SegmentedBzReader) ReadString() (string, os.Error) {
-	if sbz.bfin == nil {
-		return "", os.EOF
-	}
-	str, err := sbz.bfin.ReadString('\n')
-	if err == nil {
-		return str, nil
-	}
-	if err != os.EOF {
-		fmt.Printf("Index %d: Non-EOF error!\n", sbz.index)
-		fmt.Printf("str: '%v' err: '%v'\n", str, err)
-		panic("Unrecoverable error")
-	}
-
-	sbz.index += 1
-	sbz.OpenNext()
-
-	// Last file?
-	if err != nil || sbz.cfin == nil {
-		return str, nil
-	}
-
-	nstr, nerr := sbz.bfin.ReadString('\n')
-
-	str = fmt.Sprintf("%v%v", str, nstr)
-
-	return str, nerr
+func (tds tdlist) Swap(a, b int) {
+  tds[a], tds[b] = tds[b], tds[a]
 }
-
-func (sbz *SegmentedBzReader) Close() {
-	sbz.cfin.Close()
-	sbz.cfin = nil
-	sbz.bfin = nil
+func (tds tdlist) Sort() {
+  sort.Sort(tds)
 }
 
 //
@@ -328,24 +298,32 @@ func generateNewTitleFile() (string, string) {
 	defer fout.Close()
 
 	// Plop version and dbname into bzwikipedia.dat
-	fmt.Fprintf(dfout, "version:1\n")
+	fmt.Fprintf(dfout, "version:%d\n", current_cache_version)
 	fmt.Fprintf(dfout, "dbname:%v\n", curdbname)
 
 	// Now read through all the bzip files looking for <title> bits.
-	bzr := NewBzReader(1)
+	bzr := bzreader.NewBzReader(conf["data_dir"], curdbname, 1)
 
 	// We print a notice every 100 chunks, just 'cuz it's more user friendly
 	// to show _something_ going on.
 	nextprint := 100
 
-	// Total # of records, so that we know how big to make the title_map
-	// when loading.
-	record_count := 0
+        // For title cache version 2:
+        //
+        // We are using \x01titlename\x02record, and it is sorted,
+        // case sensitively, for binary searching.
+        //
+        // We are also discarding redirects, which adds a small amount
+        // of complexity since we have <title>, then a few lines later
+        // <redirect may or may not exist. So we don't add <title>
+        // to the array until either A: We see another <title> without
+        // seeing <redirect, or we reach end of file.
+        //
 
-	titlerx := regexp.MustCompile("^ *<title>(.*)</title>")
-
+        var titleslice tdlist
+        var td *TitleData
 	for {
-		curindex := bzr.index
+		curindex := bzr.Index
 		if curindex >= nextprint {
 			nextprint = curindex + 100
 			fmt.Println("Reading chunk", curindex)
@@ -355,7 +333,7 @@ func generateNewTitleFile() (string, string) {
 			break
 		}
 		if err != nil {
-			fmt.Printf("Error while reading chunk %v: %v\n", bzr.index, err)
+			fmt.Printf("Error while reading chunk %v: %v\n", bzr.Index, err)
 			panic("Unrecoverable error.")
 		}
 
@@ -364,30 +342,46 @@ func generateNewTitleFile() (string, string) {
 			continue
 		}
 
-		var idx int
+		idx := strings.Index(str, "<title>")
 
-		for idx = 0; idx < len(str) && str[idx] == ' '; idx++ {
-		}
-
-		if (idx < len(str)) && (str[idx] == '<') && (str[idx+1] == 't') &&
-			(str[idx+2] == 'i') && (str[idx+3] == 't') {
-			matches := titlerx.FindStringSubmatch(str)
-			if matches != nil {
-				record_count++
-				fmt.Fprintf(fout, "%v -- %d\n", matches[1], curindex)
-			}
-		}
+                if idx >= 0 {
+                  if td != nil {
+                    titleslice = append(titleslice, *td)
+                  }
+                  eidx := strings.Index(str, "</title>")
+                  title := str[idx+7:eidx]
+                  td = &TitleData{Title: title, Start: curindex}
+                } else if strings.Contains(str, "<redirect") {
+                  if td != nil {
+                    // Discarding redirect.
+                    td = nil
+                  }
+                }
 	}
-	fmt.Fprintf(dfout, "rcount:%v\n", record_count)
+        if td != nil {
+          titleslice = append(titleslice, *td)
+        }
+        // Now sort titleslice.
+        titleslice.Sort()
+
+        for _, i := range(titleslice) {
+          fmt.Fprintf(fout, "\x01%s\x02%d", i.Title, i.Start)
+        }
+
+	fmt.Fprintf(dfout, "rcount:%v\n", len(titleslice))
+
+        // We are now done with our in-memory list of Title data.
+        // Let's aggressively GC.
+        runtime.GC()
 
 	return title_file_new, dat_file_new
 }
 
-////// Title file format:
-// title -- startsegment
+////// Title file format: Version 2
+// \x01title\x02startsegment
 
 ////// bzwikipedia.dat file format:
-// version:1
+// version:2
 // dbname:enwiki-20110405-pages-articles.xml.bz2
 // rcount:12345
 // (rcount being record count.)
@@ -404,16 +398,20 @@ func performUpdates() {
 	}
 	fmt.Println("Latest DB:", recent)
 
-	if !needUpdate(recent) {
+        dosplit, docache := needUpdate(recent)
+
+	if !(docache || dosplit) {
 		fmt.Println("Cache update not required.")
 		return
 	}
 
-	// Clean out old files if we need 'em to be.
-	cleanOldCache()
+        if (dosplit) {
+          // Clean out old files if we need 'em to be.
+          cleanOldCache()
 
-	// Turn the big old .xml.bz2 into a bunch of smaller .xml.bz2s
-	splitBz2File(recent)
+          // Turn the big old .xml.bz2 into a bunch of smaller .xml.bz2s
+          splitBz2File(recent)
+        }
 
 	curdbname = basename(recent)
 
@@ -427,13 +425,12 @@ func performUpdates() {
 	// We have now completed pre-processing! Yay!
 }
 
-type TitleData struct {
-	Title string
-	Start int
-}
+// Now we load the title cache file. We read it in as one huge lump.
+// \x01title\x02startsegment
 
-var title_map map[string]TitleData
 var record_count int
+var title_blob []byte
+var title_size int64
 
 func loadTitleFile() bool {
 	// Open the dat file.
@@ -486,10 +483,7 @@ func loadTitleFile() bool {
 	fmt.Printf("DB '%s': Loading %d records.\n",
 		curdbname, record_count)
 
-	// This is one WHOPPING big map!
-	title_map = make(map[string]TitleData, record_count+1)
-
-	// Read in the titles.
+	// Read in the massive title blob.
 	fin, err := os.Open(conf["title_file"])
 	if err != nil {
 		fmt.Println(err)
@@ -497,37 +491,115 @@ func loadTitleFile() bool {
 	}
 	defer fin.Close()
 
-	bfin := bufio.NewReader(fin)
-	// recordrx := regexp.MustCompile("^(.*) -- ([0-9]+)\n$")
+        // Find out how big it is.
+        stat, err := fin.Stat()
+        if err != nil {
+          fmt.Printf("Error while slurping in title cache: '%v'\n", err)
+          return false
+        }
+        title_size = stat.Size
 
-	for i := 0; i < record_count; i++ {
-		str, err := bfin.ReadString('\n')
-		if err != nil {
-			fmt.Println(err)
-			return false
-		}
-		// matches = recordrx.FindStringSubmatch(str)
-		res := strings.SplitN(str, " -- ", 2)
-		// Since Atoi requires a chomp()'d string, and that's too slow:
-		// start, err := strconv.Atoi(res[1])
-		// if err != nil { fmt.Println(err); return false }
-		start := 0
-		for x := 0; x < len(res[1]) && res[1][x] >= 48; x++ {
-			start *= 10
-			start += int(res[1][x] - '0')
-		}
+        title_blob = make([]byte, title_size, title_size)
 
-		if i%100000 == 0 {
-			fmt.Printf("Loaded %d (%d%% complete)\n", i, (i*100)/record_count)
-		}
-		td := TitleData{
-			Title: res[0],
-			Start: start,
-		}
-		title_map[td.Title] = td
-	}
+        nread, err := fin.Read(title_blob)
 
-	return true
+        if err != nil && err != os.EOF {
+          fmt.Printf("Error while slurping in title cache: '%v'\n", err)
+          return false
+        }
+        if int64(nread) != title_size || err != nil {
+          fmt.Printf("Unable to read entire file, only read %d/%d\n",
+                     nread, stat.Size)
+          return false
+        }
+        return true
+}
+
+// var title_blob []byte
+// var title_size int64
+
+// Binary search within a blob of unequal length strings.
+func findTitleData(name string) (TitleData, bool) {
+  // We limit to 100, just in case.
+  searchesLeft := 100
+
+  min := int64(-1)
+  max := int64(title_size)
+
+  minlen := int64(len(name))
+
+search:
+  for {
+    // Find the halfway point.
+    if searchesLeft <= 0 { break search }
+    searchesLeft -= 1
+    cur := int64(((max - min) / 2) + min)
+    origcur := cur
+    if (title_size - cur) < minlen { break search }
+    fmt.Printf("sl: %d min<cur<max: %d<%d<%d\n", searchesLeft, min, cur, max)
+
+    // Go backwards to look for the \x01 that signifies start of
+    // record.
+record:
+    for {
+      if cur <= min {
+        if cur <= min {
+          // We may be very close, but searching the wrong way. Search forward,
+          // now.
+          cur = origcur
+          for {
+            if cur > max { break search }
+            if title_blob[cur] == '\x01' { break record }
+            cur += 1
+          }
+        }
+      }
+      if title_blob[cur] == '\x01' { break record }
+      cur -= 1
+    }
+
+    if (max - cur) < minlen { break search }
+
+    recordStart := cur + 1
+    recordEnd := recordStart + 1
+    for {
+      if title_blob[recordEnd] == '\x02' { break }
+      recordEnd += 1
+    }
+
+    td := TitleData{}
+
+    // We have the title.
+    td.Title = string(title_blob[recordStart:recordEnd])
+
+    // Now we look for the \x02###(\x01|end) for the index.
+    recordStart = recordEnd + 1
+    recordEnd = recordStart + 1
+    for {
+      if recordEnd >= title_size {
+        recordEnd = title_size
+        break
+      }
+      if title_blob[recordEnd] == '\x01' { break }
+      recordEnd += 1
+    }
+    num := string(title_blob[recordStart:recordEnd])
+
+    td.Start, _ = strconv.Atoi(num)
+
+    fmt.Printf("%d: '%v' with start '%v'\n", 100 - searchesLeft, td.Title, td.Start)
+
+    // Did we find it? Did we?
+    if td.Title == name { return td, true }
+
+    // Nope, let's divide and conquer.
+    if td.Title < name {
+      min = cur
+    } else if td.Title > name {
+      max = cur
+    }
+  }
+  return TitleData{}, false
 }
 
 var wholetextrx = regexp.MustCompile("<text[^>]*>(.*)</text>")
@@ -541,7 +613,7 @@ func readTitle(td TitleData) string {
 	toFind := fmt.Sprintf("<title>%s</title>", td.Title)
 
 	// Start looking for the title.
-	bzr := NewBzReader(td.Start)
+	bzr := bzreader.NewBzReader(conf["data_dir"], curdbname, td.Start)
 
 	for {
 		str, err = bzr.ReadString()
@@ -614,6 +686,7 @@ type SearchPage struct {
 var SearchTemplate *template.Template
 
 func searchHandle(w http.ResponseWriter, req *http.Request) {
+        /*
 	// "/search/"
 	pagetitle := getTitle(req.URL.Path[8:])
 	if len(pagetitle) < 4 {
@@ -646,6 +719,7 @@ func searchHandle(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(w, err.String(), http.StatusInternalServerError)
 	}
+        */
 }
 
 type WikiPage struct {
@@ -666,7 +740,7 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
 		WikiTemplate = newtpl
 	}
 
-	td, ok := title_map[pagetitle]
+        td, ok := findTitleData(pagetitle)
 
 	if ok {
 		p := WikiPage{Title: pagetitle, Body: readTitle(td)}
@@ -730,7 +804,7 @@ func main() {
 	// perform pre-processing.
 	performUpdates()
 
-	// Create the title_map variable
+	// Load in the title cache
 	if !loadTitleFile() {
 		fmt.Println("Unable to read Title cache file: Invalid format?")
 		return

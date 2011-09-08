@@ -1,1 +1,2 @@
 main.6: confparse.6
+main.6: bzreader.6
