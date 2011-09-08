@@ -13,10 +13,10 @@ import (
 
 type SegmentedBzReader struct {
 	Index  int
-	bfin  *bufio.Reader
-	cfin  *os.File
-        path   string
-        dbname string
+	bfin   *bufio.Reader
+	cfin   *os.File
+	path   string
+	dbname string
 }
 
 //
@@ -27,8 +27,8 @@ func NewBzReader(path, dbname string, index int) *SegmentedBzReader {
 	sbz.Index = index
 	sbz.bfin = nil
 	sbz.cfin = nil
-        sbz.path = path
-        sbz.dbname = dbname
+	sbz.path = path
+	sbz.dbname = dbname
 
 	sbz.OpenNext()
 	return sbz
@@ -72,15 +72,15 @@ func (sbz *SegmentedBzReader) ReadString() (string, os.Error) {
 	sbz.OpenNext()
 
 	// Last file?
-	if err != nil || sbz.cfin == nil {
+	if sbz.cfin == nil {
 		return str, nil
 	}
 
 	nstr, nerr := sbz.bfin.ReadString('\n')
 
-	str = fmt.Sprintf("%v%v", str, nstr)
+	fullstr := fmt.Sprintf("%v%v", str, nstr)
 
-	return str, nerr
+	return fullstr, nerr
 }
 
 func (sbz *SegmentedBzReader) Close() {
