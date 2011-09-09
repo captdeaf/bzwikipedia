@@ -21,7 +21,9 @@ Initial setup:
    recent timestamp in the filename
    (e.g: enwiki-20110803-pages-articles.xml.bz2)
 
-3) Start the server:
+3) Optionally: Edit bzwikipedia.conf to fiddle with your own settings.
+
+4) Start the server:
 
   Linux: Run "StartWikiServer.sh"
 
