@@ -22,6 +22,7 @@ import (
 	"template"
 	"time"
         "unsafe"
+        "utf8"
 )
 
 // current db name, if extant.
@@ -741,43 +742,111 @@ type SearchPage struct {
 	Results string
 }
 
+func getTitleFromPos(haystack []byte, pos int) string {
+  var i, end int
+  for i = pos; i > 0 && haystack[i] != '\x01' ; i -= 1 {}
+  for end = i; end < len(haystack) && haystack[end] != '\x02'; end++ {}
+  return string(haystack[i+1:end])
+}
+
+func caseInsensitiveFinds(haystack, needle []byte, watchdog chan []string) {
+  results := []string{}[:]
+
+  defer func() {
+    watchdog <- results
+  }()
+
+  n := len(needle)
+  if n == 0 {
+    return
+  }
+
+  var urunes []int
+  if true {
+    tmp := bytes.ToUpper(needle)
+    tmpc := utf8.RuneCount(tmp)
+    urunes = make([]int, tmpc)
+
+    for i, j := 0, 0; i < tmpc && j < len(tmp); i++ {
+      rune, cnt := utf8.DecodeRune(tmp[j:])
+      j += cnt
+      urunes[i] = rune
+    }
+  }
+
+  var lrunes []int
+  if true {
+    tmp := bytes.ToLower(needle)
+    tmpc := utf8.RuneCount(tmp)
+    lrunes = make([]int, tmpc)
+
+    for i, j := 0, 0; i < tmpc && j < len(tmp); i++ {
+      rune, cnt := utf8.DecodeRune(tmp[j:])
+      j += cnt
+      lrunes[i] = rune
+    }
+  }
+
+  lc := lrunes[0]
+  uc := urunes[0]
+  n  = len(lrunes)
+
+  maxlen := len(haystack)
+
+  for i := 0; (i + n) < maxlen; {
+    r, cnt := utf8.DecodeRune(haystack[i:])
+    i += cnt
+
+    // Check the first rune against either the lower or upper case needle
+    // rune.
+    if r == lc || r == uc {
+      x := i
+      var s int
+
+      // Check the rest.
+      for s = 1; s < n; s++ {
+        r, cnt := utf8.DecodeRune(haystack[x:])
+        x += cnt
+        if !(r == urunes[s] || r == lrunes[s]) { break }
+      }
+      if s >= n {
+        results = append(results, getTitleFromPos(haystack, i))
+      }
+    }
+  }
+}
+
 var SearchTemplate *template.Template
 
 func searchHandle(w http.ResponseWriter, req *http.Request) {
-	/*
-		// "/search/"
-		pagetitle := getTitle(req.URL.Path[8:])
-		if len(pagetitle) < 4 {
-			fmt.Fprintf(w, "Search phrase too small for now.")
-			return
-		}
+  // "/search/"
+  pagetitle := getTitle(req.URL.Path[8:])
+  if len(pagetitle) < 4 {
+          fmt.Fprintf(w, "Search phrase too small for now.")
+          return
+  }
 
-		ltitle := strings.ToLower(pagetitle)
+  // Search all keys
+  watchdog := make(chan []string)
 
-		allResults := []string{}
-		results := allResults[:]
+  // Start a goroutine for searching.
+  go caseInsensitiveFinds(title_blob, []byte(pagetitle), watchdog)
 
-		// Search all keys
-		for key, _ := range title_map {
-			if strings.Contains(strings.ToLower(key), ltitle) {
-				results = append(results, key)
-			}
-		}
+  results := <- watchdog
 
-		newtpl, terr := template.ParseFile(conf["search_template"], nil)
-		if terr != nil {
-			fmt.Println("Error in template:", terr)
-		} else {
-			SearchTemplate = newtpl
-		}
+  newtpl, terr := template.ParseFile(conf["search_template"], nil)
+  if terr != nil {
+          fmt.Println("Error in template:", terr)
+  } else {
+          SearchTemplate = newtpl
+  }
 
-		p := SearchPage{Phrase: pagetitle, Results: strings.Join(results, "|")}
-		err := SearchTemplate.Execute(w, &p)
+  p := SearchPage{Phrase: pagetitle, Results: strings.Join(results, "|")}
+  err := SearchTemplate.Execute(w, &p)
 
-		if err != nil {
-			http.Error(w, err.String(), http.StatusInternalServerError)
-		}
-	*/
+  if err != nil {
+          http.Error(w, err.String(), http.StatusInternalServerError)
+  }
 }
 
 type WikiPage struct {
