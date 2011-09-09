@@ -3,7 +3,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"bzreader"
 	"confparse"
@@ -29,7 +28,10 @@ import (
 var curdbname string
 
 // Current cache version.
-var current_cache_version = 2
+var current_cache_version = 3
+
+// Current bzwikipedia.dat info
+var dat map[string]string
 
 // global config variable
 var conf = map[string]string{
@@ -42,11 +44,18 @@ var conf = map[string]string{
 	"wiki_template":   "web/wiki.html",
 	"search_template": "web/searchresults.html",
         "cache_type":      "mmap",
+        "cache_ignore_redirects": "true",
+        "cache_ignore_rx": "^(File|Category|Wikipedia|MediaWiki|Templates|Portal):",
+        "search_routines": "4",
+        "search_ignore_rx": "",
 }
 
 func basename(fp string) string {
 	return filepath.Base(fp)
 }
+
+var searchRoutines = 4
+var ignoreSearchRx *regexp.Regexp
 
 //
 // Go provides a filepath.Base but not a filepath.Dirname ?!
@@ -105,9 +114,6 @@ func getRecentDb() string {
 	return recent
 }
 
-var versionrx = regexp.MustCompile("^version:([0-9]+)")
-var dbnamerx = regexp.MustCompile("^dbname:(.*\\.xml\\.bz2)")
-
 //
 // dosplit, docache := needUpdate()
 // If dosplit is true, then call bzip2recover.
@@ -115,53 +121,45 @@ var dbnamerx = regexp.MustCompile("^dbname:(.*\\.xml\\.bz2)")
 // be regenerated.
 //
 func needUpdate(recent string) (bool, bool) {
-	fin, err := os.Open(conf["dat_file"])
-	var matches []string
-	var cacheddbname string
+	olddat, err := confparse.ParseFile(conf["dat_file"])
 	version := 0
 
 	if err == nil {
-		breader := bufio.NewReader(fin)
-		line, err := breader.ReadString('\n')
+                version, err = strconv.Atoi(olddat["version"])
+
 		if err != nil {
 			fmt.Println("Dat file has invalid format.")
 			return true, true
 		}
 
-		matches = versionrx.FindStringSubmatch(line)
-		if matches == nil {
-			fmt.Println("Dat file has invalid version.")
-			return true, true
-		}
-
-                version, err = strconv.Atoi(matches[1])
-
-		line, err = breader.ReadString('\n')
-		if err != nil {
-			fmt.Println("Dat file has invalid format.")
-			return true, true
-		}
-
-		matches = dbnamerx.FindStringSubmatch(line)
-		if matches == nil {
-			fmt.Println("Dat file has invalid format.")
-			return true, true
-		}
-
-		cacheddbname = matches[1]
-		if basename(cacheddbname) == basename(recent) {
-			fmt.Println(recent, "matches cached database. Assuming pre-split .bz2.")
+		if basename(olddat["dbname"]) == basename(recent) {
 			// The .bz2 records exist, but we may need to
 			// regenerate the title cache file.
 			if version < current_cache_version {
                                 fmt.Printf("Version of the title cache file is %d.\n", version)
                                 fmt.Printf("Wiping cache and replacing with version %d. This will take a while.\n", current_cache_version)
+                                time.Sleep(5000000000)
 				return false, true
 			}
+                        cic := conf["cache_ignore_redirects"] == "true"
+                        cid := olddat["cache_ignore_redirects"] == "true"
+                        if cic != cid {
+                                fmt.Println("cache_ignore_redirects value has changed.")
+                                fmt.Println("Wiping cache and regenerating.\n")
+                                time.Sleep(5000000000)
+				return false, true
+                        }
+
+                        if conf["cache_ignore_rx"] != olddat["cache_ignore_rx"] {
+                                fmt.Println("cache_ignore_rx value has changed.")
+                                fmt.Println("Wiping cache and regenerating.\n")
+                                time.Sleep(5000000000)
+				return false, true
+                        }
 			return false, false
 		}
 	} else {
-		fmt.Println("Dat File doesn't exist.")
+		fmt.Printf("Unable to open %v: %v\n", conf["dat_file"], err)
 	}
 	return true, true
 }
@@ -305,27 +303,42 @@ func generateNewTitleFile() (string, string) {
 	}
 	defer fout.Close()
 
+        ignoreRedirects := conf["cache_ignore_redirects"] == "true";
+        var ignoreRx *regexp.Regexp = nil
+
+        irx := conf["cache_ignore_rx"]
+
+        if irx != "" {
+          ignoreRx = regexp.MustCompile(irx)
+        }
+
 	// Plop version and dbname into bzwikipedia.dat
 	fmt.Fprintf(dfout, "version:%d\n", current_cache_version)
 	fmt.Fprintf(dfout, "dbname:%v\n", curdbname)
+        fmt.Fprintf(dfout, "cache_ignore_rx:%v\n", irx)
+        if ignoreRedirects {
+          fmt.Fprintf(dfout, "cache_ignore_redirects:true\n")
+        } else {
+          fmt.Fprintf(dfout, "cache_ignore_redirects:false\n")
+        }
 
 	// Now read through all the bzip files looking for <title> bits.
 	bzr := bzreader.NewBzReader(conf["data_dir"], curdbname, 1)
 
-	// We print a notice every 100 chunks, just 'cuz it's more user friendly
+	// We print a notice every 1000 chunks, just 'cuz it's more user friendly
 	// to show _something_ going on.
-	nextprint := 100
+	nextprint := 0
 
-	// For title cache version 2:
+	// For title cache version 3:
 	//
-	// We are using \x01titlename\x02record, and it is sorted,
+	// We are using \ntitlename\x02record, and it is sorted,
 	// case sensitively, for binary searching.
 	//
-	// We are also discarding redirects, which adds a small amount
-	// of complexity since we have <title>, then a few lines later
-	// <redirect may or may not exist. So we don't add <title>
-	// to the array until either A: We see another <title> without
-	// seeing <redirect, or we reach end of file.
+	// We are optionally discarding redirects and other titles.
+        // Discarding redirects adds a small amount of complexity since we have
+        // <title>, then a few lines later <redirect may or may not exist. So
+        // we don't add <title> to the array until either A: We see another
+        // <title> without seeing <redirect, or we reach end of file.
 	//
 
 	var titleslice tdlist
@@ -333,7 +346,7 @@ func generateNewTitleFile() (string, string) {
 	for {
 		curindex := bzr.Index
 		if curindex >= nextprint {
-			nextprint = curindex + 100
+			nextprint = curindex + 1000
 			fmt.Println("Reading chunk", curindex)
 		}
 		str, err := bzr.ReadString()
@@ -355,6 +368,7 @@ func generateNewTitleFile() (string, string) {
 		if idx >= 0 {
 			if td != nil {
 				titleslice = append(titleslice, *td)
+                                td = nil
 			}
 			eidx := strings.Index(str, "</title>")
 			if eidx < 0 {
@@ -363,9 +377,11 @@ func generateNewTitleFile() (string, string) {
 				fmt.Printf("String is: '%v'\n", str)
 				panic("Can't find </title> tag - broken bz2?")
 			}
-			title := str[idx+7 : eidx]
-			td = &TitleData{Title: title, Start: curindex}
-		} else if strings.Contains(str, "<redirect") {
+			title := str[idx+8 : eidx]
+                        if ignoreRx == nil || !ignoreRx.MatchString(title) {
+                          td = &TitleData{Title: title, Start: curindex}
+                        }
+		} else if ignoreRedirects && strings.Contains(str, "<redirect") {
 			if td != nil {
 				// Discarding redirect.
 				td = nil
@@ -379,7 +395,7 @@ func generateNewTitleFile() (string, string) {
 	titleslice.Sort()
 
 	for _, i := range titleslice {
-		fmt.Fprintf(fout, "\x01%s\x02%d", i.Title, i.Start)
+		fmt.Fprintf(fout, "\n%s\x02%d", i.Title, i.Start)
 	}
 
 	fmt.Fprintf(dfout, "rcount:%v\n", len(titleslice))
@@ -392,7 +408,7 @@ func generateNewTitleFile() (string, string) {
 }
 
 ////// Title file format: Version 2
-// \x01title\x02startsegment
+// \ntitle\x02startsegment
 
 ////// bzwikipedia.dat file format:
 // version:2
@@ -440,62 +456,22 @@ func performUpdates() {
 }
 
 // Now we load the title cache file. We read it in as one huge lump.
-// \x01title\x02startsegment
+// \ntitle\x02startsegment
 
 var record_count int
 var title_blob []byte
 var title_size int64
 
 func loadTitleFile() bool {
-	// Open the dat file.
-	dfin, derr := os.Open(conf["dat_file"])
-	if derr != nil {
-		fmt.Println(derr)
-		return false
-	}
-	defer dfin.Close()
+        var derr os.Error
+	dat, derr = confparse.ParseFile(conf["dat_file"])
+	if derr != nil { fmt.Println(derr); return false }
 
-	bdfin := bufio.NewReader(dfin)
+	curdbname = dat["dbname"]
+	record_count, derr = strconv.Atoi(dat["rcount"])
+	if derr != nil { fmt.Println(derr); return false }
 
-	kvrx := regexp.MustCompile("^([a-z]+):(.*)\\n$")
-
-	var str string
-
-	if str, derr = bdfin.ReadString('\n'); derr != nil {
-		return false
-	}
-	matches := kvrx.FindStringSubmatch(str)
-
-	if matches == nil || matches[1] != "version" {
-		return false
-	}
-
-	if str, derr = bdfin.ReadString('\n'); derr != nil {
-		return false
-	}
-	matches = kvrx.FindStringSubmatch(str)
-
-	if matches == nil || matches[1] != "dbname" {
-		return false
-	}
-	curdbname = matches[2]
-
-	if str, derr = bdfin.ReadString('\n'); derr != nil {
-		return false
-	}
-	matches = kvrx.FindStringSubmatch(str)
-
-	if matches == nil || matches[1] != "rcount" {
-		return false
-	}
-	record_count, derr = strconv.Atoi(matches[2])
-	if derr != nil {
-		fmt.Println(derr)
-		return false
-	}
-
-	fmt.Printf("DB '%s': Loading %d records.\n",
-		curdbname, record_count)
+	fmt.Printf("DB '%s': Contains %d records.\n", curdbname, record_count)
 
         //
         // Read in the massive title blob.
@@ -585,7 +561,7 @@ search:
 			break search
 		}
 
-		// Go backwards to look for the \x01 that signifies start of
+		// Go backwards to look for the \n that signifies start of
 		// record.
 	record:
 		for {
@@ -598,14 +574,14 @@ search:
 						if cur > max {
 							break search
 						}
-						if title_blob[cur] == '\x01' {
+						if title_blob[cur] == '\n' {
 							break record
 						}
 						cur += 1
 					}
 				}
 			}
-			if title_blob[cur] == '\x01' {
+			if title_blob[cur] == '\n' {
 				break record
 			}
 			cur -= 1
@@ -629,7 +605,7 @@ search:
 		// We have the title.
 		td.Title = string(title_blob[recordStart:recordEnd])
 
-		// Now we look for the \x02###(\x01|end) for the index.
+		// Now we look for the \x02###(\n|end) for the index.
 		recordStart = recordEnd + 1
 		recordEnd = recordStart + 1
 		for {
@@ -637,7 +613,7 @@ search:
 				recordEnd = title_size
 				break
 			}
-			if title_blob[recordEnd] == '\x01' {
+			if title_blob[recordEnd] == '\n' {
 				break
 			}
 			recordEnd += 1
@@ -744,7 +720,7 @@ type SearchPage struct {
 
 func getTitleFromPos(haystack []byte, pos int) string {
   var i, end int
-  for i = pos; i > 0 && haystack[i] != '\x01' ; i -= 1 {}
+  for i = pos; i > 0 && haystack[i] != '\n' ; i -= 1 {}
   for end = i; end < len(haystack) && haystack[end] != '\x02'; end++ {}
   return string(haystack[i+1:end])
 }
@@ -810,7 +786,14 @@ func caseInsensitiveFinds(haystack, needle []byte, watchdog chan []string) {
         if !(r == urunes[s] || r == lrunes[s]) { break }
       }
       if s >= n {
-        results = append(results, getTitleFromPos(haystack, i))
+        cur := getTitleFromPos(haystack, i)
+        if (ignoreSearchRx == nil || !ignoreSearchRx.MatchString(cur)) {
+          results = append(results, cur)
+        }
+        for {
+          if i > maxlen || haystack[i] == '\n' { break }
+          i += 1
+        }
       }
     }
   }
@@ -892,12 +875,31 @@ func parseConfig(confname string) {
 	fmt.Printf("Read config file '%s'\n", confname)
 
 	for key, value := range fromfile {
-		if conf[key] == "" {
+		if _, ok := conf[key] ; !ok {
 			fmt.Printf("Unknown config key: '%v'\n", key)
 		} else {
 			conf[key] = value
 		}
 	}
+
+        // Set globals for speed.
+        if conf["search_ignore_rx"] != "" {
+          ignoreSearchRx = regexp.MustCompile(conf["search_ignore_rx"])
+        } else {
+          ignoreSearchRx = nil
+        }
+
+        if conf["search_routines"] != "" {
+          searchRoutines, err = strconv.Atoi(conf["search_routines"])
+          if err != nil {
+            fmt.Println("search_routines: Unable to parse '%v' as integer: '%v'.\n",
+                        conf["search_routines"], err)
+            fmt.Println("search_routines: Using default value.\n")
+            searchRoutines = 4
+          } else if searchRoutines < 1 || searchRoutines > 64 {
+            fmt.Println("search_routines: Number '%v' Out of range (1-64).\n", searchRoutines)
+          }
+        }
 }
 
 type GracefulError string
