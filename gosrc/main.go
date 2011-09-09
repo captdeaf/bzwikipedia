@@ -12,13 +12,16 @@ import (
 	"http"
 	"os"
 	"path/filepath"
+        "reflect"
 	"regexp"
 	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+        "syscall"
 	"template"
 	"time"
+        "unsafe"
 )
 
 // current db name, if extant.
@@ -37,6 +40,7 @@ var conf = map[string]string{
 	"web_dir":         "web",
 	"wiki_template":   "web/wiki.html",
 	"search_template": "web/searchresults.html",
+        "cache_type":      "mmap",
 }
 
 func basename(fp string) string {
@@ -492,13 +496,15 @@ func loadTitleFile() bool {
 	fmt.Printf("DB '%s': Loading %d records.\n",
 		curdbname, record_count)
 
-	// Read in the massive title blob.
-	fin, err := os.Open(conf["title_file"])
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-	defer fin.Close()
+        //
+        // Read in the massive title blob.
+        //
+        fin, err := os.Open(conf["title_file"])
+        if err != nil {
+                fmt.Println(err)
+                return false
+        }
+        defer fin.Close()
 
 	// Find out how big it is.
 	stat, err := fin.Stat()
@@ -508,19 +514,47 @@ func loadTitleFile() bool {
 	}
 	title_size = stat.Size
 
-	title_blob = make([]byte, title_size, title_size)
 
-	nread, err := fin.Read(title_blob)
+        // How should we approach this? We have a few options:
+        //  mmap: Use disk. Less memory, but slower access.
+        //  ram: Read into RAM. A lot more memory, but faster access.
+        dommap := conf["cache_type"] == "mmap"
 
-	if err != nil && err != os.EOF {
-		fmt.Printf("Error while slurping in title cache: '%v'\n", err)
-		return false
-	}
-	if int64(nread) != title_size || err != nil {
-		fmt.Printf("Unable to read entire file, only read %d/%d\n",
-			nread, stat.Size)
-		return false
-	}
+        if dommap {
+          // Try to mmap.
+          addr, _, errno := syscall.Syscall6(syscall.SYS_MMAP,
+                                             0,
+                                             uintptr(title_size),
+                                             uintptr(1),
+                                             uintptr(2),
+                                             uintptr(fin.Fd()),
+                                             0)
+          if errno == 0 {
+            dh := (*reflect.SliceHeader)(unsafe.Pointer(&title_blob))
+            dh.Data = addr
+            dh.Len = int(title_size) // Hmmm.. truncating here feels like trouble.
+            dh.Cap = dh.Len
+            fmt.Printf("Successfully mmaped!\n")
+          } else {
+            fmt.Printf("Unable to mmap! error: '%v'\n", os.Errno(errno))
+          }
+        }
+        if !dommap {
+          // Default: Load into memory.
+          title_blob = make([]byte, title_size, title_size)
+
+          nread, err := fin.Read(title_blob)
+
+          if err != nil && err != os.EOF {
+                  fmt.Printf("Error while slurping in title cache: '%v'\n", err)
+                  return false
+          }
+          if int64(nread) != title_size || err != nil {
+                  fmt.Printf("Unable to read entire file, only read %d/%d\n",
+                          nread, stat.Size)
+                  return false
+          }
+        }
 	return true
 }
 
