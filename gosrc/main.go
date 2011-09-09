@@ -56,6 +56,12 @@ func basename(fp string) string {
 
 var searchRoutines = 4
 var ignoreSearchRx *regexp.Regexp
+type searchRange struct { Start, End int64 }
+
+var searchRanges []searchRange
+
+const TITLE_DELIM = '\n'
+const RECORD_DELIM = '\x02'
 
 //
 // Go provides a filepath.Base but not a filepath.Dirname ?!
@@ -331,7 +337,7 @@ func generateNewTitleFile() (string, string) {
 
 	// For title cache version 3:
 	//
-	// We are using \ntitlename\x02record, and it is sorted,
+	// We are using <TITLE_DELIM>titlename<RECORD_DELIM>record, and it is sorted,
 	// case sensitively, for binary searching.
 	//
 	// We are optionally discarding redirects and other titles.
@@ -395,7 +401,7 @@ func generateNewTitleFile() (string, string) {
 	titleslice.Sort()
 
 	for _, i := range titleslice {
-		fmt.Fprintf(fout, "\n%s\x02%d", i.Title, i.Start)
+		fmt.Fprintf(fout, "%c%s%c%d", TITLE_DELIM, i.Title, RECORD_DELIM, i.Start)
 	}
 
 	fmt.Fprintf(dfout, "rcount:%v\n", len(titleslice))
@@ -408,7 +414,7 @@ func generateNewTitleFile() (string, string) {
 }
 
 ////// Title file format: Version 2
-// \ntitle\x02startsegment
+// <TITLE_DELIM>title<RECORD_DELIM>startsegment
 
 ////// bzwikipedia.dat file format:
 // version:2
@@ -456,7 +462,7 @@ func performUpdates() {
 }
 
 // Now we load the title cache file. We read it in as one huge lump.
-// \ntitle\x02startsegment
+// <TITLE_DELIM>title<RECORD_DELIM>tartsegment
 
 var record_count int
 var title_blob []byte
@@ -518,6 +524,7 @@ func loadTitleFile() bool {
         }
         if !dommap {
           // Default: Load into memory.
+          fmt.Printf("Loading titlecache.dat into Memory . . .\n")
           title_blob = make([]byte, title_size, title_size)
 
           nread, err := fin.Read(title_blob)
@@ -561,7 +568,7 @@ search:
 			break search
 		}
 
-		// Go backwards to look for the \n that signifies start of
+		// Go backwards to look for the TITLE_DELIM that signifies start of
 		// record.
 	record:
 		for {
@@ -574,14 +581,14 @@ search:
 						if cur > max {
 							break search
 						}
-						if title_blob[cur] == '\n' {
+						if title_blob[cur] == TITLE_DELIM {
 							break record
 						}
 						cur += 1
 					}
 				}
 			}
-			if title_blob[cur] == '\n' {
+			if title_blob[cur] == TITLE_DELIM {
 				break record
 			}
 			cur -= 1
@@ -594,7 +601,7 @@ search:
 		recordStart := cur + 1
 		recordEnd := recordStart + 1
 		for {
-			if title_blob[recordEnd] == '\x02' {
+			if title_blob[recordEnd] == RECORD_DELIM {
 				break
 			}
 			recordEnd += 1
@@ -605,7 +612,7 @@ search:
 		// We have the title.
 		td.Title = string(title_blob[recordStart:recordEnd])
 
-		// Now we look for the \x02###(\n|end) for the index.
+		// Now we look for the <RECORD_DELIM>###(<TITLE_DELIM>|end) for the index.
 		recordStart = recordEnd + 1
 		recordEnd = recordStart + 1
 		for {
@@ -613,7 +620,7 @@ search:
 				recordEnd = title_size
 				break
 			}
-			if title_blob[recordEnd] == '\n' {
+			if title_blob[recordEnd] == TITLE_DELIM {
 				break
 			}
 			recordEnd += 1
@@ -720,8 +727,8 @@ type SearchPage struct {
 
 func getTitleFromPos(haystack []byte, pos int) string {
   var i, end int
-  for i = pos; i > 0 && haystack[i] != '\n' ; i -= 1 {}
-  for end = i; end < len(haystack) && haystack[end] != '\x02'; end++ {}
+  for i = pos; i > 0 && haystack[i] != TITLE_DELIM ; i -= 1 {}
+  for end = i; end < len(haystack) && haystack[end] != RECORD_DELIM; end++ {}
   return string(haystack[i+1:end])
 }
 
@@ -791,7 +798,7 @@ func caseInsensitiveFinds(haystack, needle []byte, watchdog chan []string) {
           results = append(results, cur)
         }
         for {
-          if i > maxlen || haystack[i] == '\n' { break }
+          if i > maxlen || haystack[i] == TITLE_DELIM { break }
           i += 1
         }
       }
@@ -809,13 +816,25 @@ func searchHandle(w http.ResponseWriter, req *http.Request) {
           return
   }
 
-  // Search all keys
+  // A watchdog for the goroutines.
   watchdog := make(chan []string)
 
-  // Start a goroutine for searching.
-  go caseInsensitiveFinds(title_blob, []byte(pagetitle), watchdog)
-
+  // Start all goroutine for searching.
+  for i := 0; i < searchRoutines; i++ {
+    go func(s, e int64, w chan []string) {
+        caseInsensitiveFinds(title_blob[s:e], []byte(pagetitle), w)
+    }(searchRanges[i].Start, searchRanges[i].End, watchdog)
+  }
+ 
+  // First results
   results := <- watchdog
+
+  for i := 1; i < searchRoutines; i++ {
+    additionalresults := <- watchdog
+    results = append(results, additionalresults...)
+  }
+
+  sort.Strings(results)
 
   newtpl, terr := template.ParseFile(conf["search_template"], nil)
   if terr != nil {
@@ -865,6 +884,66 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
 
 }
 
+// Prepare the globals needed for fast searching.
+//
+// type searchRange struct { Start, End int }
+// var searchRanges []searchRange
+//
+// What this does is pre-split the db ('haystack') into approximately equal
+// portions, bounded by TITLE_DELIM characters and the beginning and end of
+// the titlecache file.
+//
+// A setup with a single searchRoutine would have Start = 1 and End = title_size
+func prepSearchRoutines()  {
+        if conf["search_ignore_rx"] != "" {
+          ignoreSearchRx = regexp.MustCompile(conf["search_ignore_rx"])
+        } else {
+          ignoreSearchRx = nil
+        }
+
+        if conf["search_routines"] != "" {
+          var err os.Error
+          searchRoutines, err = strconv.Atoi(conf["search_routines"])
+          if err != nil {
+            fmt.Println("search_routines: Unable to parse '%v' as integer: '%v'.\n",
+                        conf["search_routines"], err)
+            fmt.Println("search_routines: Using default value.\n")
+            searchRoutines = 4
+          } else if searchRoutines < 1 || searchRoutines > 64 {
+            fmt.Println("search_routines: Number '%v' Out of range (1-64).\n", searchRoutines)
+          }
+        }
+
+        if (searchRoutines > 1) {
+          mult := title_size / int64(searchRoutines)
+          searchRanges = make([]searchRange, searchRoutines)
+          ptr := int64(0)
+          for i := 0; i < searchRoutines; i++ {
+            // Start at the end of the last one.
+            searchRanges[i].Start = ptr
+            ptr = mult * int64((i + 1))
+            if (ptr >= title_size) {
+              ptr = title_size
+            } else {
+              for {
+                if title_blob[ptr] == TITLE_DELIM { break }
+                if ptr < searchRanges[i].Start {
+                  fmt.Printf("Something is wrong with your titleCache.dat!\n")
+                  panic("Invalid titleCache.dat")
+                }
+                ptr--
+              }
+            }
+            searchRanges[i].End = ptr
+          }
+        } else {
+          searchRoutines = 1
+          searchRanges = make([]searchRange, searchRoutines)
+          searchRanges[0].Start = 0
+          searchRanges[0].End = title_size
+        }
+}
+
 func parseConfig(confname string) {
 	fromfile, err := confparse.ParseFile(confname)
 	if err != nil {
@@ -881,25 +960,6 @@ func parseConfig(confname string) {
 			conf[key] = value
 		}
 	}
-
-        // Set globals for speed.
-        if conf["search_ignore_rx"] != "" {
-          ignoreSearchRx = regexp.MustCompile(conf["search_ignore_rx"])
-        } else {
-          ignoreSearchRx = nil
-        }
-
-        if conf["search_routines"] != "" {
-          searchRoutines, err = strconv.Atoi(conf["search_routines"])
-          if err != nil {
-            fmt.Println("search_routines: Unable to parse '%v' as integer: '%v'.\n",
-                        conf["search_routines"], err)
-            fmt.Println("search_routines: Using default value.\n")
-            searchRoutines = 4
-          } else if searchRoutines < 1 || searchRoutines > 64 {
-            fmt.Println("search_routines: Number '%v' Out of range (1-64).\n", searchRoutines)
-          }
-        }
 }
 
 type GracefulError string
@@ -938,6 +998,7 @@ func main() {
 		fmt.Println("Unable to read Title cache file: Invalid format?")
 		return
 	}
+        prepSearchRoutines()
 
 	fmt.Println("Loaded! Preparing templates ...")
 
