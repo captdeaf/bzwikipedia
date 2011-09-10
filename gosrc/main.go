@@ -13,7 +13,6 @@ import (
 	"path/filepath"
         "reflect"
 	"regexp"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -360,10 +359,10 @@ func generateNewTitleFile() (string, string) {
 	for {
 		curindex := bzr.Index
 		if curindex >= nextprint {
-			nextprint = curindex + 1000
+			nextprint = nextprint + 100
 			fmt.Println("Reading chunk", curindex)
 		}
-		str, err := bzr.ReadString()
+		bstr, err := bzr.ReadBytes()
 		if err == os.EOF {
 			break
 		}
@@ -373,29 +372,29 @@ func generateNewTitleFile() (string, string) {
 		}
 
 		// This accounts for both "" and is a quick optimization.
-		if len(str) < 10 {
+		if len(bstr) < 10 {
 			continue
 		}
 
-		idx := strings.Index(str, "<title>")
+		idx := bytes.Index(bstr, []byte("<title>"))
 
 		if idx >= 0 {
 			if td != nil {
 				titleslice = append(titleslice, *td)
                                 td = nil
 			}
-			eidx := strings.Index(str, "</title>")
+			eidx := bytes.Index(bstr, []byte("</title>"))
 			if eidx < 0 {
 				fmt.Printf("eidx is less than 0 for </title>?\n")
 				fmt.Printf("Index %d:%d\n", curindex, bzr.Index)
-				fmt.Printf("String is: '%v'\n", str)
+				fmt.Printf("String is: '%s'\n", bstr)
 				panic("Can't find </title> tag - broken bz2?")
 			}
-			title := str[idx+8 : eidx]
+			title := string(bstr[idx+8 : eidx])
                         if ignoreRx == nil || !ignoreRx.MatchString(title) {
                           td = &TitleData{Title: title, Start: curindex}
                         }
-		} else if ignoreRedirects && strings.Contains(str, "<redirect") {
+		} else if ignoreRedirects && bytes.Index(bstr, []byte("<redirect")) >= 0 {
 			if td != nil {
 				// Discarding redirect.
 				td = nil
@@ -413,10 +412,6 @@ func generateNewTitleFile() (string, string) {
 	}
 
 	fmt.Fprintf(dfout, "rcount:%v\n", len(titleslice))
-
-	// We are now done with our in-memory list of Title data.
-	// Let's aggressively GC.
-	runtime.GC()
 
 	return title_file_new, dat_file_new
 }
@@ -682,12 +677,13 @@ func readTitle(td TitleData) string {
 	// Start looking for the title.
 	bzr := bzreader.NewBzReader(conf["data_dir"], curdbname, td.Start)
 
+        toFindb := []byte(toFind)
 	for {
-		str, err = bzr.ReadString()
-		if err != nil {
+		bstr, berr := bzr.ReadBytes()
+		if berr != nil {
 			return ""
 		}
-		if strings.Contains(str, toFind) {
+		if bytes.Index(bstr, toFindb) >= 0 {
 			break
 		}
 	}

@@ -54,33 +54,56 @@ func (sbz *SegmentedBzReader) OpenNext() {
 	}
 }
 
+// Return a byte array. This does not create a copy unless necessary,
+// so it should be faster and less memory consuming for scanning.
+func (sbz *SegmentedBzReader) ReadBytes() ([]byte, os.Error) {
+  if sbz.bfin == nil {
+    return nil, os.EOF
+  }
+
+  line, err := sbz.bfin.ReadSlice('\n')
+
+  // Most common case: Quick line read.
+
+  if err == nil { return line, nil }
+
+  buff := make([]byte, len(line))
+  copy(buff, line)
+
+  // If it was a buffer issue, that's easy enough to fix. 
+  if err == bufio.ErrBufferFull {
+    var nbytes []byte
+    nbytes, err = sbz.bfin.ReadBytes('\n')
+    nbuff := make([]byte, len(buff) + len(nbytes))
+    copy(nbuff, buff)
+    copy(nbuff[len(buff):], nbytes)
+    buff = nbuff
+  }
+
+  if err == os.EOF {
+    sbz.Index += 1
+    sbz.OpenNext()
+    if sbz.cfin == nil { return buff, os.EOF }
+    var nbytes []byte
+    nbytes, err = sbz.bfin.ReadBytes('\n')
+    nbuff := make([]byte, len(buff) + len(nbytes))
+    copy(nbuff, buff)
+    copy(nbuff[len(buff):], nbytes)
+    buff = nbuff
+  }
+
+  if err == nil {
+    return buff, nil
+  }
+
+  fmt.Printf("Unknown Error in bzreader.ReadBytes? '%v'\n", err)
+
+  return nil, os.EOF
+}
+
 func (sbz *SegmentedBzReader) ReadString() (string, os.Error) {
-	if sbz.bfin == nil {
-		return "", os.EOF
-	}
-	str, err := sbz.bfin.ReadString('\n')
-	if err == nil {
-		return str, nil
-	}
-	if err != os.EOF {
-		fmt.Printf("Index %d: Non-EOF error!\n", sbz.Index)
-		fmt.Printf("str: '%v' err: '%v'\n", str, err)
-		panic("Unrecoverable error")
-	}
-
-	sbz.Index += 1
-	sbz.OpenNext()
-
-	// Last file?
-	if sbz.cfin == nil {
-		return str, nil
-	}
-
-	nstr, nerr := sbz.bfin.ReadString('\n')
-
-	fullstr := fmt.Sprintf("%v%v", str, nstr)
-
-	return fullstr, nerr
+  s, e := sbz.ReadBytes()
+  return string(s), e
 }
 
 func (sbz *SegmentedBzReader) Close() {
