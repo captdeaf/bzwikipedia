@@ -20,6 +20,7 @@ import (
         "syscall"
 	"template"
 	"time"
+        "unicode"
         "unsafe"
         "utf8"
 )
@@ -316,7 +317,7 @@ func generateNewTitleFile() (string, string) {
 	}
 	defer fout.Close()
 
-        ignoreRedirects := conf["cache_ignore_redirects"] == "true";
+        ignoreRedirects := conf["cache_ignore_redirects"] == "true"
         var ignoreRx *regexp.Regexp = nil
 
         irx := conf["cache_ignore_rx"]
@@ -756,6 +757,16 @@ func getTitleFromPos(haystack []byte, pos int) string {
   return string(haystack[i+1:end])
 }
 
+// How we do searches:
+//
+// caseInsensitiveFinds() searches through haystack, which ideally is already
+// properly bounded.
+//
+// First, it turns needle into both an upper case and lower case copy,
+// so it can use both for quick reference. It discards all non-alphanumeric
+// runes from needle so that "cslewis" will match "C. S. Lewis"
+//
+// Searching in the haystack also ignores non-alphanumeric runes.
 func caseInsensitiveFinds(haystack, needle []byte, watchdog chan []string) {
   results := []string{}[:]
 
@@ -771,26 +782,32 @@ func caseInsensitiveFinds(haystack, needle []byte, watchdog chan []string) {
   var urunes []int
   if true {
     tmp := bytes.ToUpper(needle)
-    tmpc := utf8.RuneCount(tmp)
-    urunes = make([]int, tmpc)
+    urunes = []int{}[:]
 
-    for i, j := 0, 0; i < tmpc && j < len(tmp); i++ {
+    i := 0
+    for j := 0; j < len(tmp); {
       rune, cnt := utf8.DecodeRune(tmp[j:])
       j += cnt
-      urunes[i] = rune
+      if (unicode.IsLetter(rune) || unicode.IsDigit(rune)) {
+        urunes = append(urunes, rune)
+        i += 1
+      }
     }
   }
 
   var lrunes []int
   if true {
     tmp := bytes.ToLower(needle)
-    tmpc := utf8.RuneCount(tmp)
-    lrunes = make([]int, tmpc)
+    lrunes = []int{}[:]
 
-    for i, j := 0, 0; i < tmpc && j < len(tmp); i++ {
+    i := 0
+    for j := 0; j < len(tmp); {
       rune, cnt := utf8.DecodeRune(tmp[j:])
       j += cnt
-      lrunes[i] = rune
+      if (unicode.IsLetter(rune) || unicode.IsDigit(rune)) {
+        lrunes = append(lrunes, rune)
+        i += 1
+      }
     }
   }
 
@@ -800,6 +817,7 @@ func caseInsensitiveFinds(haystack, needle []byte, watchdog chan []string) {
 
   maxlen := len(haystack)
 
+nextrecord:
   for i := 0; (i + n) < maxlen; {
     r, cnt := utf8.DecodeRune(haystack[i:])
     i += cnt
@@ -810,10 +828,31 @@ func caseInsensitiveFinds(haystack, needle []byte, watchdog chan []string) {
       x := i
       var s int
 
+      // If r is 0-9, then it could be we're looking at a record number in
+      // the haystack. Make sure this doesn't happen.
+
+      if r >= '0' && r <= '9' {
+        // Skip over the next digits
+        ptr := i
+        for ; ptr < maxlen && haystack[ptr] >= '0' && haystack[ptr] <= '9'; ptr++ {}
+
+        // If it ends at a TITLE_DELIM, then this is not a match.
+        if ptr >= maxlen || haystack[ptr] == TITLE_DELIM {
+          i = ptr
+          continue nextrecord
+        }
+      }
+
       // Check the rest.
       for s = 1; s < n; s++ {
-        r, cnt := utf8.DecodeRune(haystack[x:])
-        x += cnt
+        // Skip over all non-alphanumerics.
+        var r, cnt int
+        for {
+          if haystack[x] == RECORD_DELIM || haystack[x] == TITLE_DELIM { break }
+          r, cnt = utf8.DecodeRune(haystack[x:])
+          x += cnt
+          if unicode.IsLetter(r) || unicode.IsDigit(r) { break }
+        }
         if !(r == urunes[s] || r == lrunes[s]) { break }
       }
       if s >= n {
