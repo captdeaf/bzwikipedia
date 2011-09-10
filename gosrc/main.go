@@ -859,7 +859,9 @@ func searchHandle(w http.ResponseWriter, req *http.Request) {
   // Take the first searchMaxResults
   var results []string
   if searchMaxResults > 0 && len(allresults) > 0 {
-    results = allresults[0:searchMaxResults]
+    numresults := searchMaxResults
+    if len(allresults) < numresults { numresults = len(allresults) }
+    results = allresults[0:numresults]
   } else {
     results = allresults
   }
