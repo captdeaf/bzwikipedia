@@ -49,6 +49,8 @@ var conf = map[string]string{
         "search_routines": "4",
         "search_ignore_rx": "",
         "search_max_results": "100",
+        "recents_file": "pdata/recent.dat",
+        "recents_count": "30",
 }
 
 func basename(fp string) string {
@@ -59,6 +61,9 @@ var searchRoutines = 4
 var searchMaxResults = 100
 var ignoreSearchRx *regexp.Regexp
 type searchRange struct { Start, End int64 }
+
+var recentCount int
+var recentPages []string
 
 var searchRanges []searchRange
 
@@ -825,6 +830,28 @@ func caseInsensitiveFinds(haystack, needle []byte, watchdog chan []string) {
   }
 }
 
+func markRecent(uri string) {
+  for _, i := range(recentPages) {
+    if (i == uri) { return }
+  }
+  recentPages = append(recentPages, uri)
+  if recentCount > 1 && len(recentPages) > recentCount {
+    l := len(recentPages)
+    recentPages = recentPages[l - recentCount:l]
+  }
+  // Put it all in the file.
+  dfout, derr := os.OpenFile(conf["recents_file"], os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+  if derr != nil {
+          fmt.Printf("Unable to create '%v': %v", conf["recents_file"], derr)
+          return
+  }
+  defer dfout.Close()
+
+  for _, i := range(recentPages) {
+    fmt.Fprintf(dfout, "%v\n", i)
+  }
+}
+
 var SearchTemplate *template.Template
 
 func searchHandle(w http.ResponseWriter, req *http.Request) {
@@ -834,6 +861,8 @@ func searchHandle(w http.ResponseWriter, req *http.Request) {
           fmt.Fprintf(w, "Search phrase too small for now.")
           return
   }
+
+  go markRecent(req.URL.Path)
 
   // A watchdog for the goroutines.
   watchdog := make(chan []string)
@@ -892,6 +921,8 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
 	// "/wiki/"
 	pagetitle := getTitle(req.URL.Path[6:])
 
+        go markRecent(req.URL.Path)
+
 	newtpl, terr := template.ParseFile(conf["wiki_template"], nil)
 	if terr != nil {
 		fmt.Println("Error in template:", terr)
@@ -912,6 +943,12 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "No such Wiki Page", http.StatusNotFound)
 	}
 
+}
+
+func recentHandle(w http.ResponseWriter, req *http.Request) {
+  // "/recent"
+  x := strings.Join(recentPages, "\n")
+  fmt.Fprintf(w, "%v\n", x)
 }
 
 // Prepare the globals needed for fast searching.
@@ -987,6 +1024,53 @@ func prepSearchRoutines()  {
         }
 }
 
+// Load the recent_file, if it exists, and prepare for /recents
+func prepRecents() {
+        if conf["recent_count"] != "" {
+          var err os.Error
+          recentCount, err = strconv.Atoi(conf["recent_count"])
+          if err != nil {
+            fmt.Println("recent_count: Unable to parse '%v' as integer: '%v'.\n",
+                        conf["recent_count"], err)
+            fmt.Println("recent_count: Using default value.\n")
+            recentCount = 30
+          } else if recentCount < 1 || recentCount > 1000 {
+            fmt.Println("recent_count: Number '%v' Out of range (1-1000).\n", recentCount)
+          }
+        }
+
+        // Load in the file.
+        fin, err := os.Open(conf["recents_file"])
+        if err != nil {
+                fmt.Println(err)
+                return
+        }
+        defer fin.Close()
+
+	// Find out how big it is.
+	stat, err := fin.Stat()
+	if err != nil {
+		fmt.Printf("Error while slurping in recents cache: '%v'\n", err)
+	}
+	recent_size := stat.Size
+
+        recent_blob := make([]byte, recent_size, recent_size)
+
+        nread, err := fin.Read(recent_blob)
+
+        if err != nil && err != os.EOF {
+                fmt.Printf("Error while slurping in recents cache: '%v'\n", err)
+                return
+        }
+        if int64(nread) != recent_size || err != nil {
+                fmt.Printf("Unable to read entire recents, only read %d/%d\n",
+                        nread, stat.Size)
+                return
+        }
+
+        recentPages = append(recentPages, strings.Split(string(recent_blob), "\n")...)
+}
+
 func parseConfig(confname string) {
 	fromfile, err := confparse.ParseFile(confname)
 	if err != nil {
@@ -1042,6 +1126,7 @@ func main() {
 		return
 	}
         prepSearchRoutines()
+        prepRecents()
 
 	fmt.Println("Loaded! Preparing templates ...")
 
@@ -1051,6 +1136,8 @@ func main() {
 	http.HandleFunc("/wiki/", pageHandle)
 	// /search/ look for given text
 	http.HandleFunc("/search/", searchHandle)
+        // /recent, a list of recent searches
+	http.HandleFunc("/recent", recentHandle)
 
 	// Everything else is served from the web dir.
 	http.Handle("/", http.FileServer(http.Dir(conf["web_dir"])))
