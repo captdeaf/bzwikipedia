@@ -48,6 +48,7 @@ var conf = map[string]string{
         "cache_ignore_rx": "^(File|Category|Wikipedia|MediaWiki|Templates|Portal):",
         "search_routines": "4",
         "search_ignore_rx": "",
+        "search_max_results": "100",
 }
 
 func basename(fp string) string {
@@ -55,6 +56,7 @@ func basename(fp string) string {
 }
 
 var searchRoutines = 4
+var searchMaxResults = 100
 var ignoreSearchRx *regexp.Regexp
 type searchRange struct { Start, End int64 }
 
@@ -542,18 +544,36 @@ func loadTitleFile() bool {
 	return true
 }
 
-// var title_blob []byte
-// var title_size int64
+// Compare a needle to an entry in the haystack, but do not create
+// a new string just for it.
+func caseCompare(needle, haystack []byte, hptr int64 ) int {
+  var i int64
+  l := int64(len(needle))
+  for i = 0; i < l; i++ {
+    if needle[i] != haystack[hptr + i] {
+      if needle[i] > haystack[hptr + i] {
+        return 1
+      } else {
+        return -1
+      }
+    }
+  }
+  if haystack[hptr + i] == RECORD_DELIM {
+    return 0
+  }
+  return -1
+}
 
 // Binary search within a blob of unequal length strings.
 func findTitleData(name string) (TitleData, bool) {
 	// We limit to 100, just in case.
 	searchesLeft := 100
+        needle := []byte(name)
 
-	min := int64(-1)
+	min := int64(0)
 	max := int64(title_size)
 
-	minlen := int64(len(name))
+	minlen := int64(len(needle))
 
 search:
 	for {
@@ -578,7 +598,7 @@ search:
 					// now.
 					cur = origcur
 					for {
-						if cur > max {
+						if cur >= max {
 							break search
 						}
 						if title_blob[cur] == TITLE_DELIM {
@@ -607,37 +627,36 @@ search:
 			recordEnd += 1
 		}
 
-		td := TitleData{}
-
-		// We have the title.
-		td.Title = string(title_blob[recordStart:recordEnd])
-
 		// Now we look for the <RECORD_DELIM>###(<TITLE_DELIM>|end) for the index.
-		recordStart = recordEnd + 1
-		recordEnd = recordStart + 1
+		numStart := recordEnd + 1
+		numEnd := numStart + 1
 		for {
-			if recordEnd >= title_size {
-				recordEnd = title_size
+			if numEnd >= title_size {
+				numEnd = title_size
 				break
 			}
-			if title_blob[recordEnd] == TITLE_DELIM {
+			if title_blob[numEnd] == TITLE_DELIM {
 				break
 			}
-			recordEnd += 1
+			numEnd += 1
 		}
-		num := string(title_blob[recordStart:recordEnd])
 
-		td.Start, _ = strconv.Atoi(num)
+                // Now compare
+                ret := caseCompare(needle, title_blob, recordStart)
 
 		// Did we find it? Did we?
-		if td.Title == name {
+		if ret == 0 {
+                        // We have the title.
+                        td := TitleData{}
+                        td.Title = string(title_blob[recordStart:recordEnd])
+                        td.Start, _ = strconv.Atoi(string(title_blob[numStart:numEnd]))
 			return td, true
 		}
 
 		// Nope, let's divide and conquer.
-		if td.Title < name {
+		if ret > 0 {
 			min = cur
-		} else if td.Title > name {
+		} else if ret < 0 {
 			max = cur
 		}
 	}
@@ -827,14 +846,23 @@ func searchHandle(w http.ResponseWriter, req *http.Request) {
   }
  
   // First results
-  results := <- watchdog
+  allresults := <- watchdog
 
   for i := 1; i < searchRoutines; i++ {
     additionalresults := <- watchdog
-    results = append(results, additionalresults...)
+    allresults = append(allresults, additionalresults...)
   }
 
-  sort.Strings(results)
+  // Sort results.
+  sort.Strings(allresults)
+
+  // Take the first searchMaxResults
+  var results []string
+  if searchMaxResults > 0 {
+    results = allresults[0:searchMaxResults]
+  } else {
+    results = allresults
+  }
 
   newtpl, terr := template.ParseFile(conf["search_template"], nil)
   if terr != nil {
@@ -911,6 +939,19 @@ func prepSearchRoutines()  {
             searchRoutines = 4
           } else if searchRoutines < 1 || searchRoutines > 64 {
             fmt.Println("search_routines: Number '%v' Out of range (1-64).\n", searchRoutines)
+          }
+        }
+
+        if conf["search_max_results"] != "" {
+          var err os.Error
+          searchMaxResults, err = strconv.Atoi(conf["search_max_results"])
+          if err != nil {
+            fmt.Println("search_max_results: Unable to parse '%v' as integer: '%v'.\n",
+                        conf["search_max_results"], err)
+            fmt.Println("search_max_results: Using default value.\n")
+            searchMaxResults = 100
+          } else if searchRoutines < 1 || searchRoutines > 64 {
+            fmt.Println("search_max_results: Number '%v' Out of range (1-64).\n", searchRoutines)
           }
         }
 
