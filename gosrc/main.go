@@ -390,7 +390,7 @@ func generateNewTitleFile() (string, string) {
 				fmt.Printf("String is: '%s'\n", bstr)
 				panic("Can't find </title> tag - broken bz2?")
 			}
-			title := string(bstr[idx+8 : eidx])
+			title := string(bstr[idx+7 : eidx])
                         if ignoreRx == nil || !ignoreRx.MatchString(title) {
                           td = &TitleData{Title: title, Start: curindex}
                         }
