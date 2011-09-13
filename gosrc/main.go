@@ -930,7 +930,7 @@ func searchHandle(w http.ResponseWriter, req *http.Request) {
     results = allresults
   }
 
-  newtpl, terr := template.ParseFile(conf["search_template"], nil)
+  newtpl, terr := template.ParseFile(conf["search_template"])
   if terr != nil {
           fmt.Println("Error in template:", terr)
   } else {
@@ -958,7 +958,7 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
 
         go markRecent(req.URL.Path)
 
-	newtpl, terr := template.ParseFile(conf["wiki_template"], nil)
+	newtpl, terr := template.ParseFile(conf["wiki_template"])
 	if terr != nil {
 		fmt.Println("Error in template:", terr)
 	} else {
@@ -1148,8 +1148,11 @@ func main() {
 	parseConfig("bzwikipedia.conf")
 
 	// Load the templates first.
-	SearchTemplate = template.MustParseFile(conf["search_template"], nil)
-	WikiTemplate = template.MustParseFile(conf["wiki_template"], nil)
+        var terr os.Error
+	SearchTemplate, terr = template.ParseFile(conf["search_template"])
+        if terr != nil { panic("Unable to parse search template!") }
+	WikiTemplate, terr = template.ParseFile(conf["wiki_template"])
+        if terr != nil { panic("Unable to parse search template!") }
 
 	// Check for any new databases, including initial startup, and
 	// perform pre-processing.
