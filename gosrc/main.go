@@ -294,6 +294,28 @@ func (tds tdlist) Sort() {
 	sort.Sort(tds)
 }
 
+type searchlist []string
+
+func (sl searchlist) Len() int {
+	return len(sl)
+}
+func (sl searchlist) Less(a, b int) bool {
+        x := len(sl[a]) - len(sl[b])
+        if x == 0 {
+          return sl[a] < sl[b]
+        }
+        if x > 0 {
+          return false
+        }
+        return true
+}
+func (sl searchlist) Swap(a, b int) {
+	sl[a], sl[b] = sl[b], sl[a]
+}
+func (sl searchlist) Sort() {
+	sort.Sort(sl)
+}
+
 //
 // Generate the new title cache file.
 //
@@ -918,7 +940,8 @@ func searchHandle(w http.ResponseWriter, req *http.Request) {
   }
 
   // Sort results.
-  sort.Strings(allresults)
+  // sort.Strings(allresults)
+  searchlist(allresults).Sort()
 
   // Take the first searchMaxResults
   var results []string
