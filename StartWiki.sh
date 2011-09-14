@@ -4,9 +4,7 @@
 
 if [ ! -f bzwikipedia ] ; then
   echo "bzwikipedia is not compiled. Compiling ..."
-  cd gosrc
-  gomake
-  cd ..
+  gomake -C gosrc
 fi
 
 if [ ! -f gosrc/bzwikipedia ] ; then
