@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -1258,9 +1259,7 @@ func main() {
 	prepSearchRoutines()
 	prepRecents()
 
-	fmt.Println("Loaded! Preparing templates ...")
-
-	fmt.Println("Starting Web server on port", conf["listen"])
+	fmt.Println("Loaded! Starting webserver . . .")
 
 	// /wiki/... are pages.
 	http.HandleFunc("/wiki/", pageHandle)
@@ -1271,6 +1270,11 @@ func main() {
 
 	// Everything else is served from the web dir.
 	http.Handle("/", http.FileServer(http.Dir(conf["web_dir"])))
+
+        fmt.Printf("Forcing Go to use %d max threads.\n", searchRoutines)
+        runtime.GOMAXPROCS(searchRoutines)
+
+	fmt.Println("Starting Web server on port", conf["listen"])
 
 	err := http.ListenAndServe(conf["listen"], nil)
 	if err != nil {
