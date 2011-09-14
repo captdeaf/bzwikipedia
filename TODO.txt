@@ -21,6 +21,12 @@ Features yet to do before bzwikipedia is "complete":
 
 * Write clean and usable html pages: For /, /wiki/*, and /search/*
 
+* Windows support.
+
+* Distribute executables.
+
+* Maybe a wrapper that can set up a quick bzwikipedia install?
+
 Convenient, but not necessary:
 
 * Keep track of how long splitBz2File and generateTitleFile take, printing
