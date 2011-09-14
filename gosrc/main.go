@@ -925,7 +925,63 @@ func markRecent(uri string) {
 	}
 }
 
-var SearchTemplate *template.Template
+type templateInfo struct {
+	tpl *template.Template
+	mtime int64
+	err   string
+}
+
+var templateCache = map[string] *templateInfo{}
+
+func loadTemplate(tname string) *templateInfo {
+	cached := templateCache[tname]
+
+	if cached == nil {
+	  cached = &templateInfo { tpl: nil, mtime: 0, err: "Not loaded" }
+	}
+
+	// Check mtime.
+	fin, err := os.Open(tname)
+	if err != nil {
+	  cached.err = fmt.Sprintf("Unable to open '%s': '%v'", tname, err)
+	  return cached
+	}
+	defer fin.Close()
+	stat, err := fin.Stat()
+	if err != nil {
+	  cached.err = fmt.Sprintf("Unable to stat '%s': '%v'", tname, err)
+	  return cached
+	}
+
+	if stat.Mtime_ns <= cached.mtime {
+	  return cached
+	}
+
+	cached.tpl, err = template.ParseFile(tname)
+	if err == nil {
+	  cached.err = ""
+	} else {
+	  cached.err = fmt.Sprintf("Error while parsing '%s': '%v'", tname, err)
+	}
+
+	templateCache[tname] = cached
+	return cached
+}
+
+func renderTemplate(tname string, data interface{}) (string, int) {
+	cache := loadTemplate(tname)
+
+	if cache.tpl == nil || cache.err != "" {
+	  return fmt.Sprintf("Error while loading template: %v", cache.err),
+	         http.StatusInternalServerError
+	}
+
+	buff := bytes.NewBuffer(nil)
+
+	cache.tpl.Execute(buff, data)
+
+	return buff.String(), http.StatusOK
+}
 
 func searchHandle(w http.ResponseWriter, req *http.Request) {
 	// "/search/"
@@ -971,19 +1027,14 @@ func searchHandle(w http.ResponseWriter, req *http.Request) {
 		results = allresults
 	}
 
-	newtpl, terr := template.ParseFile(conf["search_template"])
-	if terr != nil {
-		fmt.Println("Error in template:", terr)
-	} else {
-		SearchTemplate = newtpl
-	}
-
 	p := SearchPage{Phrase: pagetitle, Results: strings.Join(results, "|")}
-	err := SearchTemplate.Execute(w, &p)
 
-	if err != nil {
-		http.Error(w, err.String(), http.StatusInternalServerError)
-	}
+	page, status := renderTemplate(conf["search_template"], &p)
+        w.Header().Set("Content-Type", "text/html")
+        w.Header().Set("Content-Length", fmt.Sprintf("%d", len(page)))
+
+	w.WriteHeader(status)
+	w.Write([]byte(page))
 }
 
 type WikiPage struct {
@@ -991,32 +1042,26 @@ type WikiPage struct {
 	Body  string
 }
 
-var WikiTemplate *template.Template
-
 func pageHandle(w http.ResponseWriter, req *http.Request) {
+        w.Header().Set("Content-Type", "text/html")
 	// "/wiki/"
 	pagetitle := getTitle(req.URL.Path[6:])
 
 	go markRecent(req.URL.Path)
 
-	newtpl, terr := template.ParseFile(conf["wiki_template"])
-	if terr != nil {
-		fmt.Println("Error in template:", terr)
-	} else {
-		WikiTemplate = newtpl
-	}
-
 	td, ok := findTitleData(pagetitle)
 
 	if ok {
 		p := WikiPage{Title: pagetitle, Body: readTitle(td)}
-		err := WikiTemplate.Execute(w, &p)
+		page, status := renderTemplate(conf["wiki_template"], &p)
+		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(page)))
 
-		if err != nil {
-			fmt.Printf("Error with WikiTemplate.Execute: '%v'\n", err)
-		}
+		w.WriteHeader(status)
+		w.Write([]byte(page))
 	} else {
-		http.Error(w, "No such Wiki Page", http.StatusNotFound)
+                w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "No such Wiki Page")
 	}
 
 }
@@ -1200,17 +1245,6 @@ func main() {
 	os.Chdir(dirname(os.Args[0]))
 
 	parseConfig("bzwikipedia.conf")
-
-	// Load the templates first.
-	var terr os.Error
-	SearchTemplate, terr = template.ParseFile(conf["search_template"])
-	if terr != nil {
-		panic("Unable to parse search template!")
-	}
-	WikiTemplate, terr = template.ParseFile(conf["wiki_template"])
-	if terr != nil {
-		panic("Unable to parse search template!")
-	}
 
 	// Check for any new databases, including initial startup, and
 	// perform pre-processing.
