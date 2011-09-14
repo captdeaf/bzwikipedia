@@ -812,7 +812,8 @@ func caseInsensitiveFinds(haystack, needle []byte, watchdog chan []string) {
 		for j := 0; j < len(tmp); {
 			rune, cnt := utf8.DecodeRune(tmp[j:])
 			j += cnt
-			if unicode.IsLetter(rune) || unicode.IsDigit(rune) {
+                        // Strip out all spaces.
+			if !unicode.IsSpace(rune) {
 				urunes = append(urunes, rune)
 				i += 1
 			}
@@ -828,12 +829,17 @@ func caseInsensitiveFinds(haystack, needle []byte, watchdog chan []string) {
 		for j := 0; j < len(tmp); {
 			rune, cnt := utf8.DecodeRune(tmp[j:])
 			j += cnt
-			if unicode.IsLetter(rune) || unicode.IsDigit(rune) {
+                        // Strip out all spaces.
+			if !unicode.IsSpace(rune) {
 				lrunes = append(lrunes, rune)
 				i += 1
 			}
 		}
 	}
+
+        if len(lrunes) < 1 {
+          return
+        }
 
 	lc := lrunes[0]
 	uc := urunes[0]
@@ -991,10 +997,6 @@ func renderTemplate(tname string, data interface{}) (string, int) {
 func searchHandle(w http.ResponseWriter, req *http.Request) {
 	// "/search/"
 	pagetitle := getTitle(req.URL.Path[8:])
-	if len(pagetitle) < 4 {
-		fmt.Fprintf(w, "Search phrase too small for now.")
-		return
-	}
 
 	go markRecent(req.URL.Path)
 
