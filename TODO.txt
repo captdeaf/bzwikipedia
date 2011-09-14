@@ -46,6 +46,9 @@ Convenient, but not necessary:
 * Maybe a small go library for interfacing with pdata/, so that there's not
   only bzwikipedia, but command-line tools for doing the same?
 
+* Do away with the need for bzip2recover: Write a splitter inside of
+  bzwikipedia. (Good for Windows and for "Standalone" goal?)
+
 Long term?
 
 * A "Quick Install" script that checks for latest available titlecache.dat and
