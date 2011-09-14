@@ -2,10 +2,7 @@
 
 # Ensure that we are compiled.
 
-if [ ! -f bzwikipedia ] ; then
-  echo "bzwikipedia is not compiled. Compiling ..."
-  gomake -C gosrc
-fi
+type -p gomake && gomake -C gosrc
 
 if [ ! -f gosrc/bzwikipedia ] ; then
   echo "Apparently unable to compile bzwikipedia."
