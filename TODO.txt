@@ -20,6 +20,8 @@ Features yet to do before bzwikipedia is "complete":
 * Write a server-side wikimarkup->HTML formatter, so clients don't need
   JavaScript in order to use bzw.
 
+* Search result caching and paginating, to get all results.
+
 * Write clean and usable html pages: For /, /wiki/*, and /search/*
 
 Convenient, but not necessary:
