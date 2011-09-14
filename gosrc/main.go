@@ -11,7 +11,6 @@ import (
 	"http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -20,7 +19,6 @@ import (
 	"template"
 	"time"
 	"unicode"
-	"unsafe"
 	"utf8"
 )
 
@@ -538,18 +536,14 @@ func loadTitleFile() bool {
 
 	if dommap {
 		// Try to mmap.
-		addr, _, errno := syscall.Syscall6(syscall.SYS_MMAP,
+		addr, errno := syscall.Mmap(
+			fin.Fd(),
 			0,
-			uintptr(title_size),
-			uintptr(1),
-			uintptr(2),
-			uintptr(fin.Fd()),
-			0)
+			int(title_size),
+			syscall.PROT_READ,
+			syscall.MAP_PRIVATE)
 		if errno == 0 {
-			dh := (*reflect.SliceHeader)(unsafe.Pointer(&title_blob))
-			dh.Data = addr
-			dh.Len = int(title_size) // Hmmm.. truncating here feels like trouble.
-			dh.Cap = dh.Len
+			title_blob = addr
 			fmt.Printf("Successfully mmaped!\n")
 		} else {
 			fmt.Printf("Unable to mmap! error: '%v'\n", os.Errno(errno))
