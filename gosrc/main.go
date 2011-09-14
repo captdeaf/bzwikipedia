@@ -11,17 +11,17 @@ import (
 	"http"
 	"os"
 	"path/filepath"
-        "reflect"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-        "syscall"
+	"syscall"
 	"template"
 	"time"
-        "unicode"
-        "unsafe"
-        "utf8"
+	"unicode"
+	"unsafe"
+	"utf8"
 )
 
 // current db name, if extant.
@@ -35,22 +35,22 @@ var dat map[string]string
 
 // global config variable
 var conf = map[string]string{
-	"listen":          ":2012",
-	"drop_dir":        "drop",
-	"data_dir":        "pdata",
-	"title_file":      "pdata/titlecache.dat",
-	"dat_file":        "pdata/bzwikipedia.dat",
-	"web_dir":         "web",
-	"wiki_template":   "web/wiki.html",
-	"search_template": "web/searchresults.html",
-        "cache_type":      "mmap",
-        "cache_ignore_redirects": "true",
-        "cache_ignore_rx": "^(File|Category|Wikipedia|MediaWiki|Templates|Portal):",
-        "search_routines": "4",
-        "search_ignore_rx": "",
-        "search_max_results": "100",
-        "recents_file": "pdata/recent.dat",
-        "recents_count": "30",
+	"listen":                 ":2012",
+	"drop_dir":               "drop",
+	"data_dir":               "pdata",
+	"title_file":             "pdata/titlecache.dat",
+	"dat_file":               "pdata/bzwikipedia.dat",
+	"web_dir":                "web",
+	"wiki_template":          "web/wiki.html",
+	"search_template":        "web/searchresults.html",
+	"cache_type":             "mmap",
+	"cache_ignore_redirects": "true",
+	"cache_ignore_rx":        "^(File|Category|Wikipedia|MediaWiki|Templates|Portal):",
+	"search_routines":        "4",
+	"search_ignore_rx":       "",
+	"search_max_results":     "100",
+	"recents_file":           "pdata/recent.dat",
+	"recents_count":          "30",
 }
 
 func basename(fp string) string {
@@ -60,7 +60,8 @@ func basename(fp string) string {
 var searchRoutines = 4
 var searchMaxResults = 100
 var ignoreSearchRx *regexp.Regexp
-type searchRange struct { Start, End int64 }
+
+type searchRange struct{ Start, End int64 }
 
 var recentCount int
 var recentPages []string
@@ -138,7 +139,7 @@ func needUpdate(recent string) (bool, bool) {
 	version := 0
 
 	if err == nil {
-                version, err = strconv.Atoi(olddat["version"])
+		version, err = strconv.Atoi(olddat["version"])
 
 		if err != nil {
 			fmt.Println("Dat file has invalid format.")
@@ -149,26 +150,26 @@ func needUpdate(recent string) (bool, bool) {
 			// The .bz2 records exist, but we may need to
 			// regenerate the title cache file.
 			if version < current_cache_version {
-                                fmt.Printf("Version of the title cache file is %d.\n", version)
-                                fmt.Printf("Wiping cache and replacing with version %d. This will take a while.\n", current_cache_version)
-                                time.Sleep(5000000000)
+				fmt.Printf("Version of the title cache file is %d.\n", version)
+				fmt.Printf("Wiping cache and replacing with version %d. This will take a while.\n", current_cache_version)
+				time.Sleep(5000000000)
 				return false, true
 			}
-                        cic := conf["cache_ignore_redirects"] == "true"
-                        cid := olddat["cache_ignore_redirects"] == "true"
-                        if cic != cid {
-                                fmt.Println("cache_ignore_redirects value has changed.")
-                                fmt.Println("Wiping cache and regenerating.\n")
-                                time.Sleep(5000000000)
+			cic := conf["cache_ignore_redirects"] == "true"
+			cid := olddat["cache_ignore_redirects"] == "true"
+			if cic != cid {
+				fmt.Println("cache_ignore_redirects value has changed.")
+				fmt.Println("Wiping cache and regenerating.\n")
+				time.Sleep(5000000000)
 				return false, true
-                        }
+			}
 
-                        if conf["cache_ignore_rx"] != olddat["cache_ignore_rx"] {
-                                fmt.Println("cache_ignore_rx value has changed.")
-                                fmt.Println("Wiping cache and regenerating.\n")
-                                time.Sleep(5000000000)
+			if conf["cache_ignore_rx"] != olddat["cache_ignore_rx"] {
+				fmt.Println("cache_ignore_rx value has changed.")
+				fmt.Println("Wiping cache and regenerating.\n")
+				time.Sleep(5000000000)
 				return false, true
-                        }
+			}
 			return false, false
 		}
 	} else {
@@ -246,7 +247,7 @@ func splitBz2File(recent string) {
 	executable, patherr := exec.LookPath("bzip2recover")
 	if patherr != nil {
 		fmt.Println("bzip2recover not found anywhere in your path, making wild guess")
-		executable = "/usr/bin/bz2recover"
+		executable = "/usr/bin/bzip2recover"
 	}
 
 	environ := os.ProcAttr{
@@ -316,24 +317,24 @@ func generateNewTitleFile() (string, string) {
 	}
 	defer fout.Close()
 
-        ignoreRedirects := conf["cache_ignore_redirects"] == "true"
-        var ignoreRx *regexp.Regexp = nil
+	ignoreRedirects := conf["cache_ignore_redirects"] == "true"
+	var ignoreRx *regexp.Regexp = nil
 
-        irx := conf["cache_ignore_rx"]
+	irx := conf["cache_ignore_rx"]
 
-        if irx != "" {
-          ignoreRx = regexp.MustCompile(irx)
-        }
+	if irx != "" {
+		ignoreRx = regexp.MustCompile(irx)
+	}
 
 	// Plop version and dbname into bzwikipedia.dat
 	fmt.Fprintf(dfout, "version:%d\n", current_cache_version)
 	fmt.Fprintf(dfout, "dbname:%v\n", curdbname)
-        fmt.Fprintf(dfout, "cache_ignore_rx:%v\n", irx)
-        if ignoreRedirects {
-          fmt.Fprintf(dfout, "cache_ignore_redirects:true\n")
-        } else {
-          fmt.Fprintf(dfout, "cache_ignore_redirects:false\n")
-        }
+	fmt.Fprintf(dfout, "cache_ignore_rx:%v\n", irx)
+	if ignoreRedirects {
+		fmt.Fprintf(dfout, "cache_ignore_redirects:true\n")
+	} else {
+		fmt.Fprintf(dfout, "cache_ignore_redirects:false\n")
+	}
 
 	// Now read through all the bzip files looking for <title> bits.
 	bzr := bzreader.NewBzReader(conf["data_dir"], curdbname, 1)
@@ -348,10 +349,10 @@ func generateNewTitleFile() (string, string) {
 	// case sensitively, for binary searching.
 	//
 	// We are optionally discarding redirects and other titles.
-        // Discarding redirects adds a small amount of complexity since we have
-        // <title>, then a few lines later <redirect may or may not exist. So
-        // we don't add <title> to the array until either A: We see another
-        // <title> without seeing <redirect, or we reach end of file.
+	// Discarding redirects adds a small amount of complexity since we have
+	// <title>, then a few lines later <redirect may or may not exist. So
+	// we don't add <title> to the array until either A: We see another
+	// <title> without seeing <redirect, or we reach end of file.
 	//
 
 	var titleslice tdlist
@@ -381,7 +382,7 @@ func generateNewTitleFile() (string, string) {
 		if idx >= 0 {
 			if td != nil {
 				titleslice = append(titleslice, *td)
-                                td = nil
+				td = nil
 			}
 			eidx := bytes.Index(bstr, []byte("</title>"))
 			if eidx < 0 {
@@ -391,9 +392,9 @@ func generateNewTitleFile() (string, string) {
 				panic("Can't find </title> tag - broken bz2?")
 			}
 			title := string(bstr[idx+7 : eidx])
-                        if ignoreRx == nil || !ignoreRx.MatchString(title) {
-                          td = &TitleData{Title: title, Start: curindex}
-                        }
+			if ignoreRx == nil || !ignoreRx.MatchString(title) {
+				td = &TitleData{Title: title, Start: curindex}
+			}
 		} else if ignoreRedirects && bytes.Index(bstr, []byte("<redirect")) >= 0 {
 			if td != nil {
 				// Discarding redirect.
@@ -472,25 +473,31 @@ var title_blob []byte
 var title_size int64
 
 func loadTitleFile() bool {
-        var derr os.Error
+	var derr os.Error
 	dat, derr = confparse.ParseFile(conf["dat_file"])
-	if derr != nil { fmt.Println(derr); return false }
+	if derr != nil {
+		fmt.Println(derr)
+		return false
+	}
 
 	curdbname = dat["dbname"]
 	record_count, derr = strconv.Atoi(dat["rcount"])
-	if derr != nil { fmt.Println(derr); return false }
+	if derr != nil {
+		fmt.Println(derr)
+		return false
+	}
 
 	fmt.Printf("DB '%s': Contains %d records.\n", curdbname, record_count)
 
-        //
-        // Read in the massive title blob.
-        //
-        fin, err := os.Open(conf["title_file"])
-        if err != nil {
-                fmt.Println(err)
-                return false
-        }
-        defer fin.Close()
+	//
+	// Read in the massive title blob.
+	//
+	fin, err := os.Open(conf["title_file"])
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	defer fin.Close()
 
 	// Find out how big it is.
 	stat, err := fin.Stat()
@@ -500,76 +507,75 @@ func loadTitleFile() bool {
 	}
 	title_size = stat.Size
 
+	// How should we approach this? We have a few options:
+	//  mmap: Use disk. Less memory, but slower access.
+	//  ram: Read into RAM. A lot more memory, but faster access.
+	dommap := conf["cache_type"] == "mmap"
 
-        // How should we approach this? We have a few options:
-        //  mmap: Use disk. Less memory, but slower access.
-        //  ram: Read into RAM. A lot more memory, but faster access.
-        dommap := conf["cache_type"] == "mmap"
+	if dommap {
+		// Try to mmap.
+		addr, _, errno := syscall.Syscall6(syscall.SYS_MMAP,
+			0,
+			uintptr(title_size),
+			uintptr(1),
+			uintptr(2),
+			uintptr(fin.Fd()),
+			0)
+		if errno == 0 {
+			dh := (*reflect.SliceHeader)(unsafe.Pointer(&title_blob))
+			dh.Data = addr
+			dh.Len = int(title_size) // Hmmm.. truncating here feels like trouble.
+			dh.Cap = dh.Len
+			fmt.Printf("Successfully mmaped!\n")
+		} else {
+			fmt.Printf("Unable to mmap! error: '%v'\n", os.Errno(errno))
+		}
+	}
+	if !dommap {
+		// Default: Load into memory.
+		fmt.Printf("Loading titlecache.dat into Memory . . .\n")
+		title_blob = make([]byte, title_size, title_size)
 
-        if dommap {
-          // Try to mmap.
-          addr, _, errno := syscall.Syscall6(syscall.SYS_MMAP,
-                                             0,
-                                             uintptr(title_size),
-                                             uintptr(1),
-                                             uintptr(2),
-                                             uintptr(fin.Fd()),
-                                             0)
-          if errno == 0 {
-            dh := (*reflect.SliceHeader)(unsafe.Pointer(&title_blob))
-            dh.Data = addr
-            dh.Len = int(title_size) // Hmmm.. truncating here feels like trouble.
-            dh.Cap = dh.Len
-            fmt.Printf("Successfully mmaped!\n")
-          } else {
-            fmt.Printf("Unable to mmap! error: '%v'\n", os.Errno(errno))
-          }
-        }
-        if !dommap {
-          // Default: Load into memory.
-          fmt.Printf("Loading titlecache.dat into Memory . . .\n")
-          title_blob = make([]byte, title_size, title_size)
+		nread, err := fin.Read(title_blob)
 
-          nread, err := fin.Read(title_blob)
-
-          if err != nil && err != os.EOF {
-                  fmt.Printf("Error while slurping in title cache: '%v'\n", err)
-                  return false
-          }
-          if int64(nread) != title_size || err != nil {
-                  fmt.Printf("Unable to read entire file, only read %d/%d\n",
-                          nread, stat.Size)
-                  return false
-          }
-        }
+		if err != nil && err != os.EOF {
+			fmt.Printf("Error while slurping in title cache: '%v'\n", err)
+			return false
+		}
+		if int64(nread) != title_size || err != nil {
+			fmt.Printf("Unable to read entire file, only read %d/%d\n",
+				nread, stat.Size)
+			return false
+		}
+	}
 	return true
 }
 
 // Compare a needle to an entry in the haystack, but do not create
 // a new string just for it.
-func caseCompare(needle, haystack []byte, hptr int64 ) int {
-  var i int64
-  l := int64(len(needle))
-  for i = 0; i < l; i++ {
-    if needle[i] != haystack[hptr + i] {
-      if needle[i] > haystack[hptr + i] {
-        return 1
-      } else {
-        return -1
-      }
-    }
-  }
-  if haystack[hptr + i] == RECORD_DELIM {
-    return 0
-  }
-  return -1
+func caseCompare(needle, haystack []byte, hptr int64) int {
+	var i int64
+	l := int64(len(needle))
+	for i = 0; i < l; i++ {
+		if needle[i] != haystack[hptr+i] {
+			if needle[i] > haystack[hptr+i] {
+				return 1
+			} else {
+				return -1
+			}
+		}
+	}
+	if haystack[hptr+i] == RECORD_DELIM {
+		return 0
+	}
+	return -1
 }
 
 // Binary search within a blob of unequal length strings.
 func findTitleData(name string) (TitleData, bool) {
 	// We limit to 100, just in case.
 	searchesLeft := 100
-        needle := []byte(name)
+	needle := []byte(name)
 
 	min := int64(0)
 	max := int64(title_size)
@@ -642,15 +648,15 @@ search:
 			numEnd += 1
 		}
 
-                // Now compare
-                ret := caseCompare(needle, title_blob, recordStart)
+		// Now compare
+		ret := caseCompare(needle, title_blob, recordStart)
 
 		// Did we find it? Did we?
 		if ret == 0 {
-                        // We have the title.
-                        td := TitleData{}
-                        td.Title = string(title_blob[recordStart:recordEnd])
-                        td.Start, _ = strconv.Atoi(string(title_blob[numStart:numEnd]))
+			// We have the title.
+			td := TitleData{}
+			td.Title = string(title_blob[recordStart:recordEnd])
+			td.Start, _ = strconv.Atoi(string(title_blob[numStart:numEnd]))
 			return td, true
 		}
 
@@ -677,7 +683,7 @@ func readTitle(td TitleData) string {
 	// Start looking for the title.
 	bzr := bzreader.NewBzReader(conf["data_dir"], curdbname, td.Start)
 
-        toFindb := []byte(toFind)
+	toFindb := []byte(toFind)
 	for {
 		bstr, berr := bzr.ReadBytes()
 		if berr != nil {
@@ -747,10 +753,12 @@ type SearchPage struct {
 }
 
 func getTitleFromPos(haystack []byte, pos int) string {
-  var i, end int
-  for i = pos; i > 0 && haystack[i] != TITLE_DELIM ; i -= 1 {}
-  for end = i; end < len(haystack) && haystack[end] != RECORD_DELIM; end++ {}
-  return string(haystack[i+1:end])
+	var i, end int
+	for i = pos; i > 0 && haystack[i] != TITLE_DELIM; i -= 1 {
+	}
+	for end = i; end < len(haystack) && haystack[end] != RECORD_DELIM; end++ {
+	}
+	return string(haystack[i+1 : end])
 }
 
 // How we do searches:
@@ -764,185 +772,198 @@ func getTitleFromPos(haystack []byte, pos int) string {
 //
 // Searching in the haystack also ignores non-alphanumeric runes.
 func caseInsensitiveFinds(haystack, needle []byte, watchdog chan []string) {
-  results := []string{}[:]
+	results := []string{}[:]
 
-  defer func() {
-    watchdog <- results
-  }()
+	defer func() {
+		watchdog <- results
+	}()
 
-  n := len(needle)
-  if n == 0 {
-    return
-  }
+	n := len(needle)
+	if n == 0 {
+		return
+	}
 
-  var urunes []int
-  if true {
-    tmp := bytes.ToUpper(needle)
-    urunes = []int{}[:]
+	var urunes []int
+	if true {
+		tmp := bytes.ToUpper(needle)
+		urunes = []int{}[:]
 
-    i := 0
-    for j := 0; j < len(tmp); {
-      rune, cnt := utf8.DecodeRune(tmp[j:])
-      j += cnt
-      if (unicode.IsLetter(rune) || unicode.IsDigit(rune)) {
-        urunes = append(urunes, rune)
-        i += 1
-      }
-    }
-  }
+		i := 0
+		for j := 0; j < len(tmp); {
+			rune, cnt := utf8.DecodeRune(tmp[j:])
+			j += cnt
+			if unicode.IsLetter(rune) || unicode.IsDigit(rune) {
+				urunes = append(urunes, rune)
+				i += 1
+			}
+		}
+	}
 
-  var lrunes []int
-  if true {
-    tmp := bytes.ToLower(needle)
-    lrunes = []int{}[:]
+	var lrunes []int
+	if true {
+		tmp := bytes.ToLower(needle)
+		lrunes = []int{}[:]
 
-    i := 0
-    for j := 0; j < len(tmp); {
-      rune, cnt := utf8.DecodeRune(tmp[j:])
-      j += cnt
-      if (unicode.IsLetter(rune) || unicode.IsDigit(rune)) {
-        lrunes = append(lrunes, rune)
-        i += 1
-      }
-    }
-  }
+		i := 0
+		for j := 0; j < len(tmp); {
+			rune, cnt := utf8.DecodeRune(tmp[j:])
+			j += cnt
+			if unicode.IsLetter(rune) || unicode.IsDigit(rune) {
+				lrunes = append(lrunes, rune)
+				i += 1
+			}
+		}
+	}
 
-  lc := lrunes[0]
-  uc := urunes[0]
-  n  = len(lrunes)
+	lc := lrunes[0]
+	uc := urunes[0]
+	n = len(lrunes)
 
-  maxlen := len(haystack)
+	maxlen := len(haystack)
 
 nextrecord:
-  for i := 0; (i + n) < maxlen; {
-    r, cnt := utf8.DecodeRune(haystack[i:])
-    i += cnt
+	for i := 0; (i + n) < maxlen; {
+		r, cnt := utf8.DecodeRune(haystack[i:])
+		i += cnt
 
-    // Check the first rune against either the lower or upper case needle
-    // rune.
-    if r == lc || r == uc {
-      x := i
-      var s int
+		// Check the first rune against either the lower or upper case needle
+		// rune.
+		if r == lc || r == uc {
+			x := i
+			var s int
 
-      // If r is 0-9, then it could be we're looking at a record number in
-      // the haystack. Make sure this doesn't happen.
+			// If r is 0-9, then it could be we're looking at a record number in
+			// the haystack. Make sure this doesn't happen.
 
-      if r >= '0' && r <= '9' {
-        // Skip over the next digits
-        ptr := i
-        for ; ptr < maxlen && haystack[ptr] >= '0' && haystack[ptr] <= '9'; ptr++ {}
+			if r >= '0' && r <= '9' {
+				// Skip over the next digits
+				ptr := i
+				for ; ptr < maxlen && haystack[ptr] >= '0' && haystack[ptr] <= '9'; ptr++ {
+				}
 
-        // If it ends at a TITLE_DELIM, then this is not a match.
-        if ptr >= maxlen || haystack[ptr] == TITLE_DELIM {
-          i = ptr
-          continue nextrecord
-        }
-      }
+				// If it ends at a TITLE_DELIM, then this is not a match.
+				if ptr >= maxlen || haystack[ptr] == TITLE_DELIM {
+					i = ptr
+					continue nextrecord
+				}
+			}
 
-      // Check the rest.
-      for s = 1; s < n; s++ {
-        // Skip over all non-alphanumerics.
-        var r, cnt int
-        for {
-          if haystack[x] == RECORD_DELIM || haystack[x] == TITLE_DELIM { break }
-          r, cnt = utf8.DecodeRune(haystack[x:])
-          x += cnt
-          if unicode.IsLetter(r) || unicode.IsDigit(r) { break }
-        }
-        if !(r == urunes[s] || r == lrunes[s]) { break }
-      }
-      if s >= n {
-        cur := getTitleFromPos(haystack, i)
-        if (ignoreSearchRx == nil || !ignoreSearchRx.MatchString(cur)) {
-          results = append(results, cur)
-        }
-        for {
-          if i > maxlen || haystack[i] == TITLE_DELIM { break }
-          i += 1
-        }
-      }
-    }
-  }
+			// Check the rest.
+			for s = 1; s < n; s++ {
+				// Skip over all non-alphanumerics.
+				var r, cnt int
+				for {
+					if haystack[x] == RECORD_DELIM || haystack[x] == TITLE_DELIM {
+						break
+					}
+					r, cnt = utf8.DecodeRune(haystack[x:])
+					x += cnt
+					if unicode.IsLetter(r) || unicode.IsDigit(r) {
+						break
+					}
+				}
+				if !(r == urunes[s] || r == lrunes[s]) {
+					break
+				}
+			}
+			if s >= n {
+				cur := getTitleFromPos(haystack, i)
+				if ignoreSearchRx == nil || !ignoreSearchRx.MatchString(cur) {
+					results = append(results, cur)
+				}
+				for {
+					if i > maxlen || haystack[i] == TITLE_DELIM {
+						break
+					}
+					i += 1
+				}
+			}
+		}
+	}
 }
 
 func markRecent(uri string) {
-  for _, i := range(recentPages) {
-    if (i == uri) { return }
-  }
-  recentPages = append(recentPages, uri)
-  if recentCount > 1 && len(recentPages) > recentCount {
-    l := len(recentPages)
-    recentPages = recentPages[l - recentCount:l]
-  }
-  // Put it all in the file.
-  dfout, derr := os.OpenFile(conf["recents_file"], os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-  if derr != nil {
-          fmt.Printf("Unable to create '%v': %v", conf["recents_file"], derr)
-          return
-  }
-  defer dfout.Close()
+	for _, i := range recentPages {
+		if i == uri {
+			return
+		}
+	}
+	recentPages = append(recentPages, uri)
+	if recentCount > 1 && len(recentPages) > recentCount {
+		l := len(recentPages)
+		recentPages = recentPages[l-recentCount : l]
+	}
+	// Put it all in the file.
+	dfout, derr := os.OpenFile(conf["recents_file"], os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if derr != nil {
+		fmt.Printf("Unable to create '%v': %v", conf["recents_file"], derr)
+		return
+	}
+	defer dfout.Close()
 
-  for _, i := range(recentPages) {
-    fmt.Fprintf(dfout, "%v\n", i)
-  }
+	for _, i := range recentPages {
+		fmt.Fprintf(dfout, "%v\n", i)
+	}
 }
 
 var SearchTemplate *template.Template
 
 func searchHandle(w http.ResponseWriter, req *http.Request) {
-  // "/search/"
-  pagetitle := getTitle(req.URL.Path[8:])
-  if len(pagetitle) < 4 {
-          fmt.Fprintf(w, "Search phrase too small for now.")
-          return
-  }
+	// "/search/"
+	pagetitle := getTitle(req.URL.Path[8:])
+	if len(pagetitle) < 4 {
+		fmt.Fprintf(w, "Search phrase too small for now.")
+		return
+	}
 
-  go markRecent(req.URL.Path)
+	go markRecent(req.URL.Path)
 
-  // A watchdog for the goroutines.
-  watchdog := make(chan []string)
+	// A watchdog for the goroutines.
+	watchdog := make(chan []string)
 
-  // Start all goroutine for searching.
-  for i := 0; i < searchRoutines; i++ {
-    go func(s, e int64, w chan []string) {
-        caseInsensitiveFinds(title_blob[s:e], []byte(pagetitle), w)
-    }(searchRanges[i].Start, searchRanges[i].End, watchdog)
-  }
- 
-  // First results
-  allresults := <- watchdog
+	// Start all goroutine for searching.
+	for i := 0; i < searchRoutines; i++ {
+		go func(s, e int64, w chan []string) {
+			caseInsensitiveFinds(title_blob[s:e], []byte(pagetitle), w)
+		}(searchRanges[i].Start, searchRanges[i].End, watchdog)
+	}
 
-  for i := 1; i < searchRoutines; i++ {
-    additionalresults := <- watchdog
-    allresults = append(allresults, additionalresults...)
-  }
+	// First results
+	allresults := <-watchdog
 
-  // Sort results.
-  sort.Strings(allresults)
+	for i := 1; i < searchRoutines; i++ {
+		additionalresults := <-watchdog
+		allresults = append(allresults, additionalresults...)
+	}
 
-  // Take the first searchMaxResults
-  var results []string
-  if searchMaxResults > 0 && len(allresults) > 0 {
-    numresults := searchMaxResults
-    if len(allresults) < numresults { numresults = len(allresults) }
-    results = allresults[0:numresults]
-  } else {
-    results = allresults
-  }
+	// Sort results.
+	sort.Strings(allresults)
 
-  newtpl, terr := template.ParseFile(conf["search_template"])
-  if terr != nil {
-          fmt.Println("Error in template:", terr)
-  } else {
-          SearchTemplate = newtpl
-  }
+	// Take the first searchMaxResults
+	var results []string
+	if searchMaxResults > 0 && len(allresults) > 0 {
+		numresults := searchMaxResults
+		if len(allresults) < numresults {
+			numresults = len(allresults)
+		}
+		results = allresults[0:numresults]
+	} else {
+		results = allresults
+	}
 
-  p := SearchPage{Phrase: pagetitle, Results: strings.Join(results, "|")}
-  err := SearchTemplate.Execute(w, &p)
+	newtpl, terr := template.ParseFile(conf["search_template"])
+	if terr != nil {
+		fmt.Println("Error in template:", terr)
+	} else {
+		SearchTemplate = newtpl
+	}
 
-  if err != nil {
-          http.Error(w, err.String(), http.StatusInternalServerError)
-  }
+	p := SearchPage{Phrase: pagetitle, Results: strings.Join(results, "|")}
+	err := SearchTemplate.Execute(w, &p)
+
+	if err != nil {
+		http.Error(w, err.String(), http.StatusInternalServerError)
+	}
 }
 
 type WikiPage struct {
@@ -956,7 +977,7 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
 	// "/wiki/"
 	pagetitle := getTitle(req.URL.Path[6:])
 
-        go markRecent(req.URL.Path)
+	go markRecent(req.URL.Path)
 
 	newtpl, terr := template.ParseFile(conf["wiki_template"])
 	if terr != nil {
@@ -981,9 +1002,9 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
 }
 
 func recentHandle(w http.ResponseWriter, req *http.Request) {
-  // "/recent"
-  x := strings.Join(recentPages, "\n")
-  fmt.Fprintf(w, "%v\n", x)
+	// "/recent"
+	x := strings.Join(recentPages, "\n")
+	fmt.Fprintf(w, "%v\n", x)
 }
 
 // Prepare the globals needed for fast searching.
@@ -996,91 +1017,93 @@ func recentHandle(w http.ResponseWriter, req *http.Request) {
 // the titlecache file.
 //
 // A setup with a single searchRoutine would have Start = 1 and End = title_size
-func prepSearchRoutines()  {
-        if conf["search_ignore_rx"] != "" {
-          ignoreSearchRx = regexp.MustCompile(conf["search_ignore_rx"])
-        } else {
-          ignoreSearchRx = nil
-        }
+func prepSearchRoutines() {
+	if conf["search_ignore_rx"] != "" {
+		ignoreSearchRx = regexp.MustCompile(conf["search_ignore_rx"])
+	} else {
+		ignoreSearchRx = nil
+	}
 
-        if conf["search_routines"] != "" {
-          var err os.Error
-          searchRoutines, err = strconv.Atoi(conf["search_routines"])
-          if err != nil {
-            fmt.Println("search_routines: Unable to parse '%v' as integer: '%v'.\n",
-                        conf["search_routines"], err)
-            fmt.Println("search_routines: Using default value.\n")
-            searchRoutines = 4
-          } else if searchRoutines < 1 || searchRoutines > 64 {
-            fmt.Println("search_routines: Number '%v' Out of range (1-64).\n", searchRoutines)
-          }
-        }
+	if conf["search_routines"] != "" {
+		var err os.Error
+		searchRoutines, err = strconv.Atoi(conf["search_routines"])
+		if err != nil {
+			fmt.Println("search_routines: Unable to parse '%v' as integer: '%v'.\n",
+				conf["search_routines"], err)
+			fmt.Println("search_routines: Using default value.\n")
+			searchRoutines = 4
+		} else if searchRoutines < 1 || searchRoutines > 64 {
+			fmt.Println("search_routines: Number '%v' Out of range (1-64).\n", searchRoutines)
+		}
+	}
 
-        if conf["search_max_results"] != "" {
-          var err os.Error
-          searchMaxResults, err = strconv.Atoi(conf["search_max_results"])
-          if err != nil {
-            fmt.Println("search_max_results: Unable to parse '%v' as integer: '%v'.\n",
-                        conf["search_max_results"], err)
-            fmt.Println("search_max_results: Using default value.\n")
-            searchMaxResults = 100
-          } else if searchRoutines < 1 || searchRoutines > 64 {
-            fmt.Println("search_max_results: Number '%v' Out of range (1-64).\n", searchRoutines)
-          }
-        }
+	if conf["search_max_results"] != "" {
+		var err os.Error
+		searchMaxResults, err = strconv.Atoi(conf["search_max_results"])
+		if err != nil {
+			fmt.Println("search_max_results: Unable to parse '%v' as integer: '%v'.\n",
+				conf["search_max_results"], err)
+			fmt.Println("search_max_results: Using default value.\n")
+			searchMaxResults = 100
+		} else if searchRoutines < 1 || searchRoutines > 64 {
+			fmt.Println("search_max_results: Number '%v' Out of range (1-64).\n", searchRoutines)
+		}
+	}
 
-        if (searchRoutines > 1) {
-          mult := title_size / int64(searchRoutines)
-          searchRanges = make([]searchRange, searchRoutines)
-          ptr := int64(0)
-          for i := 0; i < searchRoutines; i++ {
-            // Start at the end of the last one.
-            searchRanges[i].Start = ptr
-            ptr = mult * int64((i + 1))
-            if (ptr >= title_size) {
-              ptr = title_size
-            } else {
-              for {
-                if title_blob[ptr] == TITLE_DELIM { break }
-                if ptr < searchRanges[i].Start {
-                  fmt.Printf("Something is wrong with your titleCache.dat!\n")
-                  panic("Invalid titleCache.dat")
-                }
-                ptr--
-              }
-            }
-            searchRanges[i].End = ptr
-          }
-        } else {
-          searchRoutines = 1
-          searchRanges = make([]searchRange, searchRoutines)
-          searchRanges[0].Start = 0
-          searchRanges[0].End = title_size
-        }
+	if searchRoutines > 1 {
+		mult := title_size / int64(searchRoutines)
+		searchRanges = make([]searchRange, searchRoutines)
+		ptr := int64(0)
+		for i := 0; i < searchRoutines; i++ {
+			// Start at the end of the last one.
+			searchRanges[i].Start = ptr
+			ptr = mult * int64((i + 1))
+			if ptr >= title_size {
+				ptr = title_size
+			} else {
+				for {
+					if title_blob[ptr] == TITLE_DELIM {
+						break
+					}
+					if ptr < searchRanges[i].Start {
+						fmt.Printf("Something is wrong with your titleCache.dat!\n")
+						panic("Invalid titleCache.dat")
+					}
+					ptr--
+				}
+			}
+			searchRanges[i].End = ptr
+		}
+	} else {
+		searchRoutines = 1
+		searchRanges = make([]searchRange, searchRoutines)
+		searchRanges[0].Start = 0
+		searchRanges[0].End = title_size
+	}
 }
 
 // Load the recent_file, if it exists, and prepare for /recents
 func prepRecents() {
-        if conf["recent_count"] != "" {
-          var err os.Error
-          recentCount, err = strconv.Atoi(conf["recent_count"])
-          if err != nil {
-            fmt.Println("recent_count: Unable to parse '%v' as integer: '%v'.\n",
-                        conf["recent_count"], err)
-            fmt.Println("recent_count: Using default value.\n")
-            recentCount = 30
-          } else if recentCount < 1 || recentCount > 1000 {
-            fmt.Println("recent_count: Number '%v' Out of range (1-1000).\n", recentCount)
-          }
-        }
+	if conf["recent_count"] != "" {
+		var err os.Error
+		recentCount, err = strconv.Atoi(conf["recent_count"])
+		if err != nil {
+			fmt.Println("recent_count: Unable to parse '%v' as integer: '%v'.\n",
+				conf["recent_count"], err)
+			fmt.Println("recent_count: Using default value.\n")
+			recentCount = 30
+		} else if recentCount < 1 || recentCount > 1000 {
+			fmt.Println("recent_count: Number '%v' Out of range (1-1000).\n", recentCount)
+		}
+	}
 
-        // Load in the file.
-        fin, err := os.Open(conf["recents_file"])
-        if err != nil {
-                fmt.Println(err)
-                return
-        }
-        defer fin.Close()
+	// Load in the file.
+	fin, err := os.Open(conf["recents_file"])
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer fin.Close()
 
 	// Find out how big it is.
 	stat, err := fin.Stat()
@@ -1089,21 +1112,21 @@ func prepRecents() {
 	}
 	recent_size := stat.Size
 
-        recent_blob := make([]byte, recent_size, recent_size)
+	recent_blob := make([]byte, recent_size, recent_size)
 
-        nread, err := fin.Read(recent_blob)
+	nread, err := fin.Read(recent_blob)
 
-        if err != nil && err != os.EOF {
-                fmt.Printf("Error while slurping in recents cache: '%v'\n", err)
-                return
-        }
-        if int64(nread) != recent_size || err != nil {
-                fmt.Printf("Unable to read entire recents, only read %d/%d\n",
-                        nread, stat.Size)
-                return
-        }
+	if err != nil && err != os.EOF {
+		fmt.Printf("Error while slurping in recents cache: '%v'\n", err)
+		return
+	}
+	if int64(nread) != recent_size || err != nil {
+		fmt.Printf("Unable to read entire recents, only read %d/%d\n",
+			nread, stat.Size)
+		return
+	}
 
-        recentPages = append(recentPages, strings.Split(string(recent_blob), "\n")...)
+	recentPages = append(recentPages, strings.Split(string(recent_blob), "\n")...)
 }
 
 func parseConfig(confname string) {
@@ -1116,7 +1139,7 @@ func parseConfig(confname string) {
 	fmt.Printf("Read config file '%s'\n", confname)
 
 	for key, value := range fromfile {
-		if _, ok := conf[key] ; !ok {
+		if _, ok := conf[key]; !ok {
 			fmt.Printf("Unknown config key: '%v'\n", key)
 		} else {
 			conf[key] = value
@@ -1148,11 +1171,15 @@ func main() {
 	parseConfig("bzwikipedia.conf")
 
 	// Load the templates first.
-        var terr os.Error
+	var terr os.Error
 	SearchTemplate, terr = template.ParseFile(conf["search_template"])
-        if terr != nil { panic("Unable to parse search template!") }
+	if terr != nil {
+		panic("Unable to parse search template!")
+	}
 	WikiTemplate, terr = template.ParseFile(conf["wiki_template"])
-        if terr != nil { panic("Unable to parse search template!") }
+	if terr != nil {
+		panic("Unable to parse search template!")
+	}
 
 	// Check for any new databases, including initial startup, and
 	// perform pre-processing.
@@ -1163,8 +1190,8 @@ func main() {
 		fmt.Println("Unable to read Title cache file: Invalid format?")
 		return
 	}
-        prepSearchRoutines()
-        prepRecents()
+	prepSearchRoutines()
+	prepRecents()
 
 	fmt.Println("Loaded! Preparing templates ...")
 
@@ -1174,7 +1201,7 @@ func main() {
 	http.HandleFunc("/wiki/", pageHandle)
 	// /search/ look for given text
 	http.HandleFunc("/search/", searchHandle)
-        // /recent, a list of recent searches
+	// /recent, a list of recent searches
 	http.HandleFunc("/recent", recentHandle)
 
 	// Everything else is served from the web dir.
