@@ -1148,18 +1148,29 @@ func parseConfig(confname string) {
 }
 
 type GracefulError string
+type RestartSignal string
 
 func main() {
 	// Defer this first to ensure cleanup gets done properly
 	// 
 	// Any error of type GracefulError is handled with an exit(1)
 	// rather than by handing the user a backtrace.
+	//
+	// An error of type RestartSignal is technically not an error
+	// but is the cleanest way to ensure no defers are skipped.
 	defer func() {
 		problem := recover()
 		switch problem.(type) {
 		case GracefulError:
 			fmt.Println(problem)
 			os.Exit(1)
+		case RestartSignal:
+			fmt.Println(problem)
+			// Probably requires closing any fds still open
+			// Will investigate later
+			syscall.Exec(os.Args[0], os.Args, os.Envs)
+			// If we're still here something went wrong.
+			panic("Couldn't restart!")
 		default:
 			panic(problem)
 		}
