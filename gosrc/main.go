@@ -978,9 +978,13 @@ func renderTemplate(tname string, data interface{}) (string, int) {
 
 	buff := bytes.NewBuffer(nil)
 
-	cache.tpl.Execute(buff, data)
+	err := cache.tpl.Execute(buff, data)
 
-	return buff.String(), http.StatusOK
+        if err == nil {
+          return buff.String(), http.StatusOK
+        }
+        return fmt.Sprintf("Error while executing template: %v", cache.err),
+               http.StatusInternalServerError
 }
 
 func searchHandle(w http.ResponseWriter, req *http.Request) {
