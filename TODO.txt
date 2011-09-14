@@ -1,0 +1,49 @@
+Features yet to do before bzwikipedia is "complete":
+
+* When drop/ is empty, bzwikipedia assumes an empty dbname, so will try
+  to remove previous cache files. Instead, it should assume that whatever
+  db is in bzwikipedia.dat is currently bzip2recover-split in pdata/.
+
+* Right now, search ignores non-word/numeric characters in the search string.
+  There are wikipedia titles that are only non-alphanum (e.g: !), so they
+  probably shouldn't be stripped out of search string, but spaces should
+  be. Also need to test for unicode: non-iso_8859-1 "alphanumeric" characters?
+
+* Ensure that the goroutines for search_routines are using system threads
+  instead of being green threads.
+
+* Write a server-side wikimarkup->HTML formatter, so clients don't need
+  JavaScript in order to use bzw.
+
+* Write a "final" html page.
+
+Convenient, but not necessary:
+
+* Keep track of how long splitBz2File and generateTitleFile take, printing
+  out information. e.g: "Parsed 36123 files in 43:14"
+
+* Having some kind of live statistic in html for both RAM and disk usage would
+  be nice, displayed on the html page once it's cleaned up.
+  e.g: "Serving 4123412 articles using 7234 MB on disk, 20MB ram"
+
+* Multiple web/ dirs so people can select one. e.g: web_js, web_lynx,
+  web_brailler, etc. Accessibility is goal, not "ooh, themes!"
+
+* Maybe have a separate titlecache.dat file that contains all the "ignored"
+  caches, in case of wikipedia articles that link to names that are actually
+  redirects?
+
+* "Local image/file cache": Allowing for local copies of files that exist
+  either on wikipedia or the web at large. A program which is given an url, and
+  creates a local copy, encoding said url in some format (base64?). Possibly
+  also bzip2ing in order to stay compressed?
+
+* Maybe a small go library for interfacing with pdata/, so that there's not
+  only bzwikipedia, but command-line tools for doing the same?
+
+Long term?
+
+* A "Quick Install" script that checks for latest available titlecache.dat and
+  bzwikipedia.dat files on some website, downloads them into pdata and the
+  appropriate enwiki-... from wikipedia, runs bzip2recover manually, etc, then
+  starts.
