@@ -485,6 +485,8 @@ func performUpdates() {
 	os.Rename(newdatfile, conf["dat_file"])
 
 	// We have now completed pre-processing! Yay!
+	// Let's celebrate by restarting to clear out memory.
+	panic(RestartSignal("Performing a full restart for efficiency."))
 }
 
 // Now we load the title cache file. We read it in as one huge lump.
