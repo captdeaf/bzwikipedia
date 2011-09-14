@@ -547,6 +547,7 @@ func loadTitleFile() bool {
 			fmt.Printf("Successfully mmaped!\n")
 		} else {
 			fmt.Printf("Unable to mmap! error: '%v'\n", os.Errno(errno))
+			dommap = false
 		}
 	}
 	if !dommap {
