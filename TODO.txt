@@ -4,6 +4,11 @@ Features yet to do before bzwikipedia is "complete":
   to remove previous cache files. Instead, it should assume that whatever
   db is in bzwikipedia.dat is currently bzip2recover-split in pdata/.
 
+* Pid and status file, so that bzwikipedia can tell if a version of it is
+  running, and what it's doing. If the older one is running bzip2recover
+  or generating the title cache, then just exit. If the old one is running
+  the http server, then kill the old one.
+
 * Right now, search ignores non-word/numeric characters in the search string.
   There are wikipedia titles that are only non-alphanum (e.g: !), so they
   probably shouldn't be stripped out of search string, but spaces should
@@ -15,7 +20,7 @@ Features yet to do before bzwikipedia is "complete":
 * Write a server-side wikimarkup->HTML formatter, so clients don't need
   JavaScript in order to use bzw.
 
-* Write a "final" html page.
+* Write clean and usable html pages: For /, /wiki/*, and /search/*
 
 Convenient, but not necessary:
 
