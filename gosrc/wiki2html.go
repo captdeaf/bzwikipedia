@@ -66,6 +66,7 @@ var nsMap = map[string]nsHandler{
 	"fr":         nsIgnore,
 	"wiktionary": nsPrefix("http://en.wiktionary.org/wiki/"),
 	"talk":       nsNoLink,
+	"wikipedia":  nsNoLink,
 }
 
 var entityFinds = regexp.MustCompile("<|>|&")
