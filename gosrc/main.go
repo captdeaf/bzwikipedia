@@ -21,7 +21,7 @@ import (
 	"time"
 	"unicode"
 	"utf8"
-        "wiki2html"
+	"wiki2html"
 )
 
 // current db name, if extant.
@@ -1019,7 +1019,7 @@ func searchHandle(w http.ResponseWriter, req *http.Request) {
 	p.Results = strings.Join(results, "|")
 
 	page, status := renderTemplate(conf["search_template"], &p)
-        w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(page)))
 
 	w.WriteHeader(status)
@@ -1033,7 +1033,7 @@ type WikiPage struct {
 }
 
 func pageHandle(w http.ResponseWriter, req *http.Request) {
-        w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	// "/wiki/"
 	pagetitle := getTitle(req.URL.Path[6:])
 
@@ -1042,12 +1042,12 @@ func pageHandle(w http.ResponseWriter, req *http.Request) {
 	td, ok := findTitleData(pagetitle)
 
 	if ok {
-                body, refs := wiki2html.Wiki2HTML(readTitle(td))
-		p := WikiPage {
-                    Title: pagetitle,
-                    Body: body,
-                    Refs: refs,
-                    }
+		body, refs := wiki2html.Wiki2HTML(readTitle(td))
+		p := WikiPage{
+			Title: pagetitle,
+			Body:  body,
+			Refs:  refs,
+		}
 		page, status := renderTemplate(conf["wiki_template"], &p)
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(page)))
 
