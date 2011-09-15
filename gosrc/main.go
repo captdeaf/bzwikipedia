@@ -9,6 +9,7 @@ import (
 	"exec"
 	"fmt"
 	"http"
+	"loadfile"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,7 +17,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"template"
 	"time"
 	"unicode"
@@ -512,63 +512,10 @@ func loadTitleFile() bool {
 
 	fmt.Printf("DB '%s': Contains %d records.\n", curdbname, record_count)
 
-	//
-	// Read in the massive title blob.
-	//
-	fin, err := os.Open(conf["title_file"])
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-	defer fin.Close()
+	var success bool
 
-	// Find out how big it is.
-	stat, err := fin.Stat()
-	if err != nil {
-		fmt.Printf("Error while slurping in title cache: '%v'\n", err)
-		return false
-	}
-	title_size = stat.Size
-
-	// How should we approach this? We have a few options:
-	//  mmap: Use disk. Less memory, but slower access.
-	//  ram: Read into RAM. A lot more memory, but faster access.
-	dommap := conf["cache_type"] == "mmap"
-
-	if dommap {
-		// Try to mmap.
-		addr, errno := syscall.Mmap(
-			fin.Fd(),
-			0,
-			int(title_size),
-			syscall.PROT_READ,
-			syscall.MAP_PRIVATE)
-		if errno == 0 {
-			title_blob = addr
-			fmt.Printf("Successfully mmaped!\n")
-		} else {
-			fmt.Printf("Unable to mmap! error: '%v'\n", os.Errno(errno))
-			dommap = false
-		}
-	}
-	if !dommap {
-		// Default: Load into memory.
-		fmt.Printf("Loading titlecache.dat into Memory . . .\n")
-		title_blob = make([]byte, title_size, title_size)
-
-		nread, err := fin.Read(title_blob)
-
-		if err != nil && err != os.EOF {
-			fmt.Printf("Error while slurping in title cache: '%v'\n", err)
-			return false
-		}
-		if int64(nread) != title_size || err != nil {
-			fmt.Printf("Unable to read entire file, only read %d/%d\n",
-				nread, stat.Size)
-			return false
-		}
-	}
-	return true
+	success, title_size, title_blob = loadfile.ReadFile(conf["title_file"], conf["cache_type"] == "mmap")
+	return success
 }
 
 // Compare a needle to an entry in the haystack, but do not create
