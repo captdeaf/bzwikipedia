@@ -1,0 +1,23 @@
+Rough preliminaries for compiling under Windows.
+
+You need:
+
+* bzip2recover, likely from http://gnuwin32.sourceforge.net/packages/bzip2.htm
+* msysgit, likely from https://code.google.com/p/msysgit/downloads/list
+* gitbash (included in the above)
+* Go, likely from https://code.google.com/p/gomingw/downloads/list
+
+Install Go and msysgit. Make sure to install gitbash.
+
+Clone the repository with git.
+
+Drop bzip2recover and bzip2.dll into the root bzwikipedia dir.
+
+**bit here about Mmap until that's resolved**
+
+From here mostly follow the common instructions and run ./StartWiki.sh in
+gitbash.
+
+On windows ln just copies, so when recompiling be sure to delete
+bzwikipedia.exe in the root dir before restarting.
+
