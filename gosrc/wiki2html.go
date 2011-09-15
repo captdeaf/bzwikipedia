@@ -63,6 +63,7 @@ var nsNoLink = nsFunction(nolinkHandler)
 
 var nsMap = map[string]nsHandler{
 	"nl":         nsIgnore,
+	"fr":         nsIgnore,
 	"wiktionary": nsPrefix("http://en.wiktionary.org/wiki/"),
 	"talk":       nsNoLink,
 }
@@ -280,8 +281,6 @@ func parseInternalLink(input []byte, tokens []token, i int, mi *markupInfo) (str
 	if page[0] == ':' {
 		leadingColon = true
 		page = page[1:]
-		//!@#$
-		fmt.Println(leadingColon)
 	}
 
 	var namespace string
@@ -292,7 +291,7 @@ func parseInternalLink(input []byte, tokens []token, i int, mi *markupInfo) (str
 		namespace = strings.ToLower(namespace)
 		handler := nsMap[namespace]
 
-		if handler != nil {
+		if handler != nil && !(leadingColon && handler == nsIgnore) {
 			instead := handler.Handle(namespace, newPage, title)
 			return instead, eidx
 		}
