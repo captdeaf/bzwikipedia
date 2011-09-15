@@ -410,7 +410,23 @@ func parseEntities(input string) string {
 	})
 }
 
-var tokenizer = regexp.MustCompile("\\n\\*|\\n#|\\n|\\{\\{|\\}\\}|\\[|\\]|'''''|'''|''|=====|====|===|==|<source[^>]*>|</source>|<ref[^>]*>|</ref>|<code[^>]*>|</code>|<pre>|</pre>|<nowiki>|</nowiki>|<tt>|</tt>")
+var allTokens = []string{
+  "\\n\\*|\\n#|\\n",            // Lists
+  "\\{\\{|\\}\\}",              // Templates
+  "\\[|\\]",                    // Internal and external links.
+  "'''''|'''|''",               // Bold+italic
+  "=====|====|===|==",          // Headings
+  "<source[^>]*>|</source>",    // Source code
+  "<ref[^>]*>|</ref>",          // References
+  "<code[^>]*>|</code>",        // Code examples
+  "<nowiki>|</nowiki>",         // Nowiki: Stuff inside is _not_ evaluated.
+  "<table[^>]*>|<tr[^>]*>|<td[^>]*>", // Tables
+  "</table>|</tr>|</td>",             // Tables
+  "<pre>|</pre>|<tt>|</tt>",    // raw HTML
+  "<span[^>]*>|<br[^>]*>",      // raw HTML
+}
+
+var tokenizer = regexp.MustCompile(strings.Join(allTokens,"|"))
 
 func tokenize(input []byte) []token {
 	// Find the location of all known tokens.
@@ -753,7 +769,9 @@ func parseGeneral(input []byte, tokens []token, start int, endtokens []string, m
 					} else {
 						results = append(results, "\n<br />\n<br />")
 					}
-					i++
+                                        // Skip over successive newlines.
+					for i++; i < len(tokens) && tokens[i].Val == "\n"; i++ {}
+                                        i--
 				} else {
 					results = append(results, "\n")
 				}
