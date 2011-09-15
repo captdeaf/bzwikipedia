@@ -13,11 +13,10 @@ Clone the repository with git.
 
 Drop bzip2recover and bzip2.dll into the root bzwikipedia dir.
 
-**bit here about Mmap until that's resolved**
+The only supported cache_type on Windows is "ram": mmap doesn't work.
 
 From here mostly follow the common instructions and run ./StartWiki.sh in
 gitbash.
 
 On windows ln just copies, so when recompiling be sure to delete
 bzwikipedia.exe in the root dir before restarting.
-
