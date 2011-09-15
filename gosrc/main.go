@@ -1276,7 +1276,7 @@ func main() {
 			// Will investigate later
 			os.Exec(os.Args[0], os.Args, os.Envs)
 			// If we're still here something went wrong.
-			fmt.Printl("Couldn't restart. You'll have to restart manually.")
+			fmt.Println("Couldn't restart. You'll have to restart manually.")
 			os.Exit(0)
 		default:
 			panic(problem)
