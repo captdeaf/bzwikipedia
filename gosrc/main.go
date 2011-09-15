@@ -770,6 +770,8 @@ func getTitle(str string) string {
 type SearchPage struct {
 	Phrase  string
 	Results string
+        ResultCount, StartingAt, EndingAt int
+        PageNum, PageCount int
 }
 
 func getTitleFromPos(haystack []byte, pos int) string {
@@ -997,6 +999,19 @@ func renderTemplate(tname string, data interface{}) (string, int) {
 func searchHandle(w http.ResponseWriter, req *http.Request) {
 	// "/search/"
 	pagetitle := getTitle(req.URL.Path[8:])
+        startingAt := 0
+
+        startPage := req.FormValue("p")
+        if startPage != "" {
+          pagenum, perr := strconv.Atoi(startPage)
+          if perr == nil {
+            pagenum = pagenum - 1
+            // Bound pagenum.
+            if (pagenum < 0) { pagenum = 0 }
+            if (pagenum > 1000) { pagenum = 1000 }
+            startingAt = pagenum * searchMaxResults
+          }
+        }
 
 	go markRecent(req.URL.Path)
 
@@ -1023,18 +1038,33 @@ func searchHandle(w http.ResponseWriter, req *http.Request) {
 	searchlist(allresults).Sort()
 
 	// Take the first searchMaxResults
-	var results []string
-	if searchMaxResults > 0 && len(allresults) > 0 {
-		numresults := searchMaxResults
-		if len(allresults) < numresults {
-			numresults = len(allresults)
-		}
-		results = allresults[0:numresults]
-	} else {
-		results = allresults
-	}
+	p := SearchPage{
+            Phrase: pagetitle,
+            StartingAt: startingAt + 1,
+            ResultCount: len(allresults),
+            PageNum: (startingAt / searchMaxResults) + 1,
+            PageCount: (len(allresults) + (searchMaxResults - 1)) / searchMaxResults,
+        }
 
-	p := SearchPage{Phrase: pagetitle, Results: strings.Join(results, "|")}
+	var results []string
+
+        maxResultsLeft := len(allresults) - startingAt
+        numResults := maxResultsLeft
+
+        if maxResultsLeft > searchMaxResults { 
+          numResults = searchMaxResults
+        } else if maxResultsLeft > 0 {
+          numResults = maxResultsLeft
+        } else {
+          numResults = 0
+        }
+
+        if numResults > 0 {
+                results = allresults[startingAt:startingAt+numResults]
+        }
+        p.EndingAt = startingAt + numResults
+
+        p.Results = strings.Join(results, "|")
 
 	page, status := renderTemplate(conf["search_template"], &p)
         w.Header().Set("Content-Type", "text/html")
