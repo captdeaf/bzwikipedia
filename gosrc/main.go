@@ -1033,15 +1033,26 @@ type WikiPage struct {
 }
 
 func pageHandle(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	// "/wiki/"
 	pagetitle := getTitle(req.URL.Path[6:])
+	doRaw := (req.FormValue("raw") != "")
 
 	go markRecent(req.URL.Path)
 
 	td, ok := findTitleData(pagetitle)
 
+        if ok && doRaw {
+                w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+                text := readTitle(td)
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(text)))
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(text))
+                return
+        }
+
 	if ok {
+                w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		body, refs := wiki2html.Wiki2HTML(readTitle(td))
 		p := WikiPage{
 			Title: pagetitle,
