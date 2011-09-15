@@ -63,288 +63,7 @@ var nsNoLink = nsFunction(nolinkHandler)
 
 // string -> handler mapping. Strings must be lowercase.
 // Due to data volume probably deserves its own file :/
-var nsMap = map[string]nsHandler{
-	"aa":           nsIgnore,
-	"ab":           nsIgnore,
-	"ace":          nsIgnore,
-	"af":           nsIgnore,
-	"ak":           nsIgnore,
-	"als":          nsIgnore,
-	"am":           nsIgnore,
-	"an":           nsIgnore,
-	"ang":          nsIgnore,
-	"ar":           nsIgnore,
-	"arc":          nsIgnore,
-	"arz":          nsIgnore,
-	"as":           nsIgnore,
-	"ast":          nsIgnore,
-	"av":           nsIgnore,
-	"ay":           nsIgnore,
-	"az":           nsIgnore,
-	"ba":           nsIgnore,
-	"bar":          nsIgnore,
-	"bat-smg":      nsIgnore,
-	"bcl":          nsIgnore,
-	"be":           nsIgnore,
-	"be-x-old":     nsIgnore,
-	"bg":           nsIgnore,
-	"bh":           nsIgnore,
-	"bi":           nsIgnore,
-	"bjn":          nsIgnore,
-	"bm":           nsIgnore,
-	"bn":           nsIgnore,
-	"bo":           nsIgnore,
-	"bpy":          nsIgnore,
-	"br":           nsIgnore,
-	"bs":           nsIgnore,
-	"bug":          nsIgnore,
-	"bxr":          nsIgnore,
-	"ca":           nsIgnore,
-	"cbk-zam":      nsIgnore,
-	"cdo":          nsIgnore,
-	"ce":           nsIgnore,
-	"ceb":          nsIgnore,
-	"ch":           nsIgnore,
-	"cho":          nsIgnore,
-	"chr":          nsIgnore,
-	"chy":          nsIgnore,
-	"ckb":          nsIgnore,
-	"co":           nsIgnore,
-	"cr":           nsIgnore,
-	"crh":          nsIgnore,
-	"cs":           nsIgnore,
-	"csb":          nsIgnore,
-	"cu":           nsIgnore,
-	"cv":           nsIgnore,
-	"cy":           nsIgnore,
-	"da":           nsIgnore,
-	"de":           nsIgnore,
-	"diq":          nsIgnore,
-	"dsb":          nsIgnore,
-	"dv":           nsIgnore,
-	"dz":           nsIgnore,
-	"ee":           nsIgnore,
-	"el":           nsIgnore,
-	"eml":          nsIgnore,
-	"eo":           nsIgnore,
-	"es":           nsIgnore,
-	"et":           nsIgnore,
-	"eu":           nsIgnore,
-	"ext":          nsIgnore,
-	"fa":           nsIgnore,
-	"ff":           nsIgnore,
-	"fi":           nsIgnore,
-	"fiu-vro":      nsIgnore,
-	"fj":           nsIgnore,
-	"fo":           nsIgnore,
-	"fr":           nsIgnore,
-	"frp":          nsIgnore,
-	"frr":          nsIgnore,
-	"fur":          nsIgnore,
-	"fy":           nsIgnore,
-	"ga":           nsIgnore,
-	"gag":          nsIgnore,
-	"gan":          nsIgnore,
-	"gd":           nsIgnore,
-	"gl":           nsIgnore,
-	"glk":          nsIgnore,
-	"gn":           nsIgnore,
-	"got":          nsIgnore,
-	"gu":           nsIgnore,
-	"gv":           nsIgnore,
-	"ha":           nsIgnore,
-	"hak":          nsIgnore,
-	"haw":          nsIgnore,
-	"he":           nsIgnore,
-	"hi":           nsIgnore,
-	"hif":          nsIgnore,
-	"ho":           nsIgnore,
-	"hr":           nsIgnore,
-	"hsb":          nsIgnore,
-	"ht":           nsIgnore,
-	"hu":           nsIgnore,
-	"hy":           nsIgnore,
-	"hz":           nsIgnore,
-	"ia":           nsIgnore,
-	"id":           nsIgnore,
-	"ie":           nsIgnore,
-	"ig":           nsIgnore,
-	"ii":           nsIgnore,
-	"ik":           nsIgnore,
-	"ilo":          nsIgnore,
-	"io":           nsIgnore,
-	"is":           nsIgnore,
-	"it":           nsIgnore,
-	"iu":           nsIgnore,
-	"ja":           nsIgnore,
-	"jbo":          nsIgnore,
-	"jv":           nsIgnore,
-	"ka":           nsIgnore,
-	"kaa":          nsIgnore,
-	"kab":          nsIgnore,
-	"kbd":          nsIgnore,
-	"kg":           nsIgnore,
-	"ki":           nsIgnore,
-	"kj":           nsIgnore,
-	"kk":           nsIgnore,
-	"kl":           nsIgnore,
-	"km":           nsIgnore,
-	"kn":           nsIgnore,
-	"ko":           nsIgnore,
-	"koi":          nsIgnore,
-	"kr":           nsIgnore,
-	"krc":          nsIgnore,
-	"ks":           nsIgnore,
-	"ksh":          nsIgnore,
-	"ku":           nsIgnore,
-	"kv":           nsIgnore,
-	"kw":           nsIgnore,
-	"ky":           nsIgnore,
-	"la":           nsIgnore,
-	"lad":          nsIgnore,
-	"lb":           nsIgnore,
-	"lbe":          nsIgnore,
-	"lg":           nsIgnore,
-	"li":           nsIgnore,
-	"lij":          nsIgnore,
-	"lmo":          nsIgnore,
-	"ln":           nsIgnore,
-	"lo":           nsIgnore,
-	"lt":           nsIgnore,
-	"ltg":          nsIgnore,
-	"lv":           nsIgnore,
-	"map-bms":      nsIgnore,
-	"mdf":          nsIgnore,
-	"mg":           nsIgnore,
-	"mh":           nsIgnore,
-	"mhr":          nsIgnore,
-	"mi":           nsIgnore,
-	"mk":           nsIgnore,
-	"ml":           nsIgnore,
-	"mn":           nsIgnore,
-	"mo":           nsIgnore,
-	"mr":           nsIgnore,
-	"mrj":          nsIgnore,
-	"ms":           nsIgnore,
-	"mt":           nsIgnore,
-	"mus":          nsIgnore,
-	"mwl":          nsIgnore,
-	"my":           nsIgnore,
-	"myv":          nsIgnore,
-	"mzn":          nsIgnore,
-	"na":           nsIgnore,
-	"nah":          nsIgnore,
-	"nap":          nsIgnore,
-	"nds":          nsIgnore,
-	"nds-nl":       nsIgnore,
-	"ne":           nsIgnore,
-	"new":          nsIgnore,
-	"ng":           nsIgnore,
-	"nl":           nsIgnore,
-	"nn":           nsIgnore,
-	"no":           nsIgnore,
-	"nov":          nsIgnore,
-	"nrm":          nsIgnore,
-	"nv":           nsIgnore,
-	"ny":           nsIgnore,
-	"oc":           nsIgnore,
-	"om":           nsIgnore,
-	"or":           nsIgnore,
-	"os":           nsIgnore,
-	"pa":           nsIgnore,
-	"pag":          nsIgnore,
-	"pam":          nsIgnore,
-	"pap":          nsIgnore,
-	"pcd":          nsIgnore,
-	"pdc":          nsIgnore,
-	"pfl":          nsIgnore,
-	"pi":           nsIgnore,
-	"pih":          nsIgnore,
-	"pl":           nsIgnore,
-	"pms":          nsIgnore,
-	"pnb":          nsIgnore,
-	"pnt":          nsIgnore,
-	"ps":           nsIgnore,
-	"pt":           nsIgnore,
-	"qu":           nsIgnore,
-	"rm":           nsIgnore,
-	"rmy":          nsIgnore,
-	"rn":           nsIgnore,
-	"ro":           nsIgnore,
-	"roa-rup":      nsIgnore,
-	"roa-tara":     nsIgnore,
-	"ru":           nsIgnore,
-	"rue":          nsIgnore,
-	"rw":           nsIgnore,
-	"sa":           nsIgnore,
-	"sah":          nsIgnore,
-	"sc":           nsIgnore,
-	"scn":          nsIgnore,
-	"sco":          nsIgnore,
-	"sd":           nsIgnore,
-	"se":           nsIgnore,
-	"sg":           nsIgnore,
-	"sh":           nsIgnore,
-	"si":           nsIgnore,
-	"simple":       nsIgnore,
-	"sk":           nsIgnore,
-	"sl":           nsIgnore,
-	"sm":           nsIgnore,
-	"sn":           nsIgnore,
-	"so":           nsIgnore,
-	"sq":           nsIgnore,
-	"sr":           nsIgnore,
-	"srn":          nsIgnore,
-	"ss":           nsIgnore,
-	"st":           nsIgnore,
-	"stq":          nsIgnore,
-	"su":           nsIgnore,
-	"sv":           nsIgnore,
-	"sw":           nsIgnore,
-	"szl":          nsIgnore,
-	"ta":           nsIgnore,
-	"te":           nsIgnore,
-	"tet":          nsIgnore,
-	"tg":           nsIgnore,
-	"th":           nsIgnore,
-	"ti":           nsIgnore,
-	"tk":           nsIgnore,
-	"tl":           nsIgnore,
-	"tn":           nsIgnore,
-	"to":           nsIgnore,
-	"tpi":          nsIgnore,
-	"tr":           nsIgnore,
-	"ts":           nsIgnore,
-	"tt":           nsIgnore,
-	"tum":          nsIgnore,
-	"tw":           nsIgnore,
-	"ty":           nsIgnore,
-	"udm":          nsIgnore,
-	"ug":           nsIgnore,
-	"uk":           nsIgnore,
-	"ur":           nsIgnore,
-	"uz":           nsIgnore,
-	"ve":           nsIgnore,
-	"vec":          nsIgnore,
-	"vi":           nsIgnore,
-	"vls":          nsIgnore,
-	"vo":           nsIgnore,
-	"wa":           nsIgnore,
-	"war":          nsIgnore,
-	"wo":           nsIgnore,
-	"wuu":          nsIgnore,
-	"xal":          nsIgnore,
-	"xh":           nsIgnore,
-	"xmf":          nsIgnore,
-	"yi":           nsIgnore,
-	"yo":           nsIgnore,
-	"za":           nsIgnore,
-	"zea":          nsIgnore,
-	"zh":           nsIgnore,
-	"zh-classical": nsIgnore,
-	"zh-min-nan":   nsIgnore,
-	"zh-yue":       nsIgnore,
-	"zu":           nsIgnore,
+var nsMap = map[string]nsHandler {
 	"wiktionary":   nsPrefix("http://en.wiktionary.org/wiki/"),
 	"wikiquote":    nsPrefix("http://en.wikiquote.org/wiki/"),
 	"category":     nsNoLink,
@@ -411,11 +130,11 @@ func parseEntities(input string) string {
 	})
 }
 
-var wikitokens = regexp.MustCompile("\\n\\*|\\n#|\\n|\\{\\{|\\}\\}|\\[|\\]|'''''|'''|''|=====|====|===|==|<source[^>]*>|</source>|<ref[^>]*>|</ref>|<code[^>]*>|</code>")
+var tokenizer = regexp.MustCompile("\\n\\*|\\n#|\\n|\\{\\{|\\}\\}|\\[|\\]|'''''|'''|''|=====|====|===|==|<source[^>]*>|</source>|<ref[^>]*>|</ref>|<code[^>]*>|</code>|<pre>|</pre>|<nowiki>|</nowiki>|<tt>|</tt>")
 
 func tokenize(input []byte) []token {
 	// Find the location of all known tokens.
-	allIndexes := wikitokens.FindAllIndex(input, -1)
+	allIndexes := tokenizer.FindAllIndex(input, -1)
 
 	count := 0
 	lastIndex := 0
@@ -524,6 +243,14 @@ func parseTemplate(input []byte, tokens []token, i int, mi *markupInfo) (string,
 	return result, eidx
 }
 
+func parseNowiki(input []byte, tokens []token, i int, mi *markupInfo) (string, int) {
+        result := []string{}
+        for i = i + 1; i < len(tokens) && tokens[i].Val != "</nowiki>"; i++ {
+          result = append(result, tokens[i].Val)
+        }
+	return strings.Join(result, ""), i
+}
+
 func parseExternalLink(input []byte, tokens []token, i int, mi *markupInfo) (string, int) {
 	// fmt.Printf("Entering [...\n")
 	// defer fmt.Printf("Leaving ]\n")
@@ -584,6 +311,9 @@ func parseInternalLink(input []byte, tokens []token, i int, mi *markupInfo) (str
 		newPage := subargs[1]
 		namespace = strings.ToLower(namespace)
 		handler := nsMap[namespace]
+                if (handler == nil) {
+                  handler = nsIgnore
+                }
 
 		if handler != nil && !(leadingColon && handler == nsIgnore) {
 			instead := handler.Handle(namespace, newPage, title)
@@ -632,6 +362,11 @@ func parseHeader(input []byte, tokens []token, i int, mi *markupInfo) (string, i
 	body, eidx := parseGeneral(input, tokens, i+1, []string{tokens[start].Val}, mi)
 
 	return fmt.Sprintf("<h%d>%s</h%d>", x, body, x), eidx
+}
+
+// <pre>...</pre>, <tt>...</tt>, etc
+func parseHtml(input []byte, tokens []token, i int, mi *markupInfo, end string) (string, int) {
+	return fmt.Sprintf("%s", tokens[i].Val), i
 }
 
 // ''''' ... '''''
@@ -797,6 +532,15 @@ func parseGeneral(input []byte, tokens []token, start int, endtokens []string, m
 				body, eidx := parseReference(input, tokens, i, mi)
 				results = append(results, body)
 				i = eidx
+			case len(tokens[i].Val) > 7 && tokens[i].Val[0:7] == "<nowiki":
+				body, eidx := parseNowiki(input, tokens, i, mi)
+				results = append(results, body)
+				i = eidx
+			// The last case for html tags: <.*>, including pre, /pre, etc.
+                        case len(tokens[i].Val) > 1 && tokens[i].Val[0:1] == "<":
+				body, eidx := parseHtml(input, tokens, i, mi, "</pre>")
+				results = append(results, body)
+				i = eidx
 			case tokens[i].Val == "]":
 				// This happens a lot. No biggie.
 				results = append(results, "]")
@@ -814,6 +558,7 @@ func parseGeneral(input []byte, tokens []token, start int, endtokens []string, m
 				} else {
 					fmt.Printf("Don't know what to do with token '%s'. No endtokens\n", tokens[i].Val)
 				}
+				results = append(results, unparseEntities(tokens[i].Val))
 			}
 		} else {
 			results = append(results, parsePlainText(string(tokens[i].Val)))
