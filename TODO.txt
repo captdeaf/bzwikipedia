@@ -9,20 +9,16 @@ Features yet to do before bzwikipedia is "complete":
   or generating the title cache, then just exit. If the old one is running
   the http server, then kill the old one.
 
-* Right now, search ignores non-word/numeric characters in the search string.
-  There are wikipedia titles that are only non-alphanum (e.g: !), so they
-  probably shouldn't be stripped out of search string, but spaces should
-  be. Also need to test for unicode: non-iso_8859-1 "alphanumeric" characters?
-
-* Ensure that the goroutines for search_routines are using system threads
-  instead of being green threads.
-
 * Write a server-side wikimarkup->HTML formatter, so clients don't need
   JavaScript in order to use bzw.
 
-* Search result caching and paginating, to get all results.
-
 * Write clean and usable html pages: For /, /wiki/*, and /search/*
+
+* Windows support.
+
+* Distribute executables.
+
+* Maybe a wrapper that can set up a quick bzwikipedia install?
 
 Convenient, but not necessary:
 
@@ -57,3 +53,16 @@ Long term?
   bzwikipedia.dat files on some website, downloads them into pdata and the
   appropriate enwiki-... from wikipedia, runs bzip2recover manually, etc, then
   starts.
+
+COMPLETED:
+
+* Ensure that the goroutines for search_routines are using system threads
+  instead of being green threads. (Done: Well, close enough using
+  runtime.GOMAXPROCS().
+
+* Right now, search ignores non-word/numeric characters in the search string.
+  There are wikipedia titles that are only non-alphanum (e.g: !), so they
+  probably shouldn't be stripped out of search string, but spaces should
+  be. Also need to test for unicode: non-iso_8859-1 "alphanumeric" characters?
+
+* Search result paginating, to get all results.
