@@ -25,7 +25,7 @@ $(PROG): $(OBJ_FILES)
 	$(GO_LD) $(GOLDFLAGS) -o $(PROG) $(patsubst %.go, build/%.$(GO_SUFFIX), $(GO_MAIN))
 
 build/loadfile.$(GO_SUFFIX): build/loadfile_$(GOOS).$(GO_SUFFIX)
-	mv build/loadfile_$(GOOS).$(GO_SUFFIX) build/loadfile.$(GO_SUFFIX)
+	cp build/loadfile_$(GOOS).$(GO_SUFFIX) build/loadfile.$(GO_SUFFIX)
 
 build/%.$(GO_SUFFIX): %.go
 	@mkdir -p build
