@@ -249,7 +249,7 @@ func parseReference(input []byte, tokens []token, i int, mi *markupInfo) (string
   body, eidx := parseGeneral(input, tokens, i + 1, []string{"</ref>"}, mi)
   mi.refCount++
   link := fmt.Sprintf("<a href=\"#ref%d\">[%d]</a>", mi.refCount, mi.refCount)
-  mi.refs = append(mi.refs, fmt.Sprintf("<a tag=\"#ref%d\"></a>%s", mi.refCount, body))
+  mi.refs = append(mi.refs, fmt.Sprintf("<a name=\"ref%d\"></a>%s", mi.refCount, body))
   return link, eidx
 }
 
