@@ -9,6 +9,9 @@ if [ ! -f gosrc/bzwikipedia ] ; then
   exit
 fi
 
+# On windows ln == cp
+[ `uname -s|sed 's/\(.....\).*/\1/'` = MINGW ] && rm bzwikipedia
+
 [ -f bzwikipedia ] || ln -s gosrc/bzwikipedia bzwikipedia
 
 ./bzwikipedia
