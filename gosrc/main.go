@@ -1274,9 +1274,10 @@ func main() {
 			fmt.Println(problem)
 			// Probably requires closing any fds still open
 			// Will investigate later
-			syscall.Exec(os.Args[0], os.Args, os.Envs)
+			os.Exec(os.Args[0], os.Args, os.Envs)
 			// If we're still here something went wrong.
-			panic("Couldn't restart!")
+			fmt.Println("Couldn't restart. You'll have to restart manually.")
+			os.Exit(0)
 		default:
 			panic(problem)
 		}
