@@ -1,2 +1,3 @@
 main.6: confparse.6
 main.6: bzreader.6
+main.6: loadfile_$(GOOS).6
