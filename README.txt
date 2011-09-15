@@ -3,12 +3,29 @@ bzwikipedia:
   Serve wikimedia (Wikipedia, Wiktionary, Wikinews, etc) format websites from
   xml.bz2 compressed files.
 
-  Things should work out of the box on anything that has a Go compiler.
+  This is intended for people to run on their own laptops, taking few
+  resources (once the initial title caching is done), so they can have
+  access to wikipedia.
 
-  WARNING: Still under development. It's ugly, and there's just raw text dumps
-  of the wiki/ data, but it works!
+Features:
+
+  * Serves wipedia pages/articles using limited resources: 7.2GB on disk
+    and 10-20MB RAM (up to 100MB burst, with search).
+
+  * Fast wiki page access. "search" is fast for the resources given.
+
+  * Advanced title search: Ignoring punctuation, spaces and case.
+
+  * Quick and easy setup.
+
+  * Optionally ignores redirect articles. (Default: ignores redirects)
+
+  * Optionally ignores certain pages. (Default: Ignores metadata pages)
 
 Initial setup:
+
+  Things should work out of the box on anything that has a Go compiler and
+  bzip2recover.
 
 1) Download the pages-articles .xml.bz2 file from:
 
@@ -29,7 +46,12 @@ Initial setup:
 
   It will perform initial setup on its own. This can take up to a few hours
   the first time and any time you drop a new .xml.bz2 file into the drop/
-  directory
+  directory.
+
+  NOTE: Unfortunately, when it parses the .xml.bz2 file, it can chew up
+  close to a GB of RAM. This is one time only, and I'm considering a process
+  to let people download pre-generated titlecache.dat and bzwikipedia.dat
+  files.
 
 To access:
 
