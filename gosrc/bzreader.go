@@ -9,6 +9,7 @@ import (
 	"compress/bzip2"
 	"fmt"
 	"os"
+	"io"
 )
 
 type SegmentedBzReader struct {
@@ -80,7 +81,7 @@ func (sbz *SegmentedBzReader) ReadBytes() ([]byte, os.Error) {
     buff = nbuff
   }
 
-  if err == os.EOF {
+  if err == os.EOF || err == io.ErrUnexpectedEOF {
     sbz.Index += 1
     sbz.OpenNext()
     if sbz.cfin == nil { return buff, os.EOF }
