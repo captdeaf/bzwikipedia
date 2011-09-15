@@ -29,6 +29,44 @@ type token struct {
 	Val     string
 }
 
+type nsHandler interface {
+	Handle(namespace, page, title string) string
+}
+
+type nsIgnorable bool
+
+const nsIgnore = nsIgnorable(false)
+
+func (n nsIgnorable) Handle(namespace, page, title string) string {
+	return ""
+}
+
+type nsPrefix string
+
+func (n nsPrefix) Handle(namespace, page, title string) string {
+	link := fmt.Sprintf("<a class=\"external\" href=\"%s%s\">%s</a>", n, page, title)
+	return link
+}
+
+type nsFunction func(namespace, page, title string) string
+
+func (n nsFunction) Handle(namespace, page, title string) string {
+	return n(namespace, page, title)
+}
+
+func nolinkHandler(namespace, page, title string) string {
+	notlink := fmt.Sprintf("<span style=\"border-bottom:1px dotted\">%s</span>", title)
+	return notlink
+}
+
+var nsNoLink = nsFunction(nolinkHandler)
+
+var nsMap = map[string]nsHandler{
+	"nl":         nsIgnore,
+	"wiktionary": nsPrefix("http://en.wiktionary.org/wiki/"),
+	"talk":       nsNoLink,
+}
+
 var entityFinds = regexp.MustCompile("<|>|&")
 
 func unparseEntities(input string) string {
@@ -236,6 +274,30 @@ func parseInternalLink(input []byte, tokens []token, i int, mi *markupInfo) (str
 	} else {
 		title = page
 	}
+
+	// How do we handle this? :/
+	leadingColon := false
+	if page[0] == ':' {
+		leadingColon = true
+		page = page[1:]
+		//!@#$
+		fmt.Println(leadingColon)
+	}
+
+	var namespace string
+	if strings.Contains(page, ":") {
+		subargs := strings.SplitN(page, ":", 2)
+		namespace = subargs[0]
+		newPage := subargs[1]
+		namespace = strings.ToLower(namespace)
+		handler := nsMap[namespace]
+
+		if handler != nil {
+			instead := handler.Handle(namespace, newPage, title)
+			return instead, eidx
+		}
+	}
+
 	link := fmt.Sprintf("<a class=\"internal\" href=\"/wiki/%s\">%s</a>", page, title)
 	return link, eidx
 }
