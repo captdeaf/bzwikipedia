@@ -456,7 +456,7 @@ func performUpdates() {
 	fmt.Printf("Checking for new .xml.bz2 files in '%v/'.", conf["drop_dir"])
 	recent := getRecentDb()
 	if recent == "" {
-		fmt.Println("No available database exists in '%v/'.", conf["drop_dir"])
+		fmt.Printf("No available database exists in '%v/'.\n", conf["drop_dir"])
 	}
 	fmt.Println("Latest DB:", recent)
 
