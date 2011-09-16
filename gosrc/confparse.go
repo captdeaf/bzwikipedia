@@ -40,7 +40,7 @@ func ParseIO(in io.Reader, data map[string]string) (err os.Error) {
 	for {
 		line, err := inBuf.ReadString('\n')
 		k, v := keyValue(line)
-		if k != "" {
+		if _, ok := data[k]; k != "" && !ok {
 			data[k] = v
 		}
 
