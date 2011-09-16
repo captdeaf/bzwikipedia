@@ -596,12 +596,12 @@ func ConfigureNameSpaces(input map[string]string) {
 			nsMap[namespace] = nsNoLink
 		case "prefix":
 			if len(args) < 2 {
-				fmt.Printf("namespace %s: supposed to be a prefix but nothing found", namespace)
+				fmt.Printf("namespace %s: supposed to be a prefix but nothing found\n", namespace)
 				continue
 			}
 			nsMap[namespace] = nsPrefix(args[1])
 		default:
-			fmt.Printf("namespace %s: cannot parse key: %s", namespace, key)
+			fmt.Printf("namespace %s: cannot parse value: %s\n", namespace, value)
 		}
 	}
 }
