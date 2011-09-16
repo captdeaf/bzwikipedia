@@ -289,9 +289,11 @@ func parseInternalLink(input []byte, tokens []token, i int, mi *markupInfo) (str
 	body, eidx := parseGeneral(input, tokens, i+1, []string{"]", "]"}, mi)
 	args := strings.SplitN(body, "|", 2)
 	var title string
+	simpleTitle := true
 	page := args[0]
 	if len(args) > 1 {
 		title = args[1]
+		simpleTitle = false
 	} else {
 		title = page
 	}
@@ -305,6 +307,9 @@ func parseInternalLink(input []byte, tokens []token, i int, mi *markupInfo) (str
 	if page[0] == ':' {
 		leadingColon = true
 		page = page[1:]
+		if simpleTitle {
+			title = title[1:]
+		}
 	}
 
 	var namespace string

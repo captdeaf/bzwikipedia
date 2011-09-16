@@ -1,16 +1,13 @@
 Features yet to do before bzwikipedia is "complete":
 
-* When drop/ is empty, bzwikipedia assumes an empty dbname, so will try
-  to remove previous cache files. Instead, it should assume that whatever
-  db is in bzwikipedia.dat is currently bzip2recover-split in pdata/.
-
 * Pid and status file, so that bzwikipedia can tell if a version of it is
   running, and what it's doing. If the older one is running bzip2recover
   or generating the title cache, then just exit. If the old one is running
   the http server, then kill the old one.
 
-* Write a server-side wikimarkup->HTML formatter, so clients don't need
-  JavaScript in order to use bzw.
+* Write a server-side wikimarkup->HTML formatter, so clients don't
+  need JavaScript in order to use bzw. (In progress, but will still
+  require some degree of template support, mainly.)
 
 * Write clean and usable html pages: For /, /wiki/*, and /search/*
 
@@ -45,6 +42,10 @@ Convenient, but not necessary:
 * Do away with the need for bzip2recover: Write a splitter inside of
   bzwikipedia. (Good for Windows and for "Standalone" goal?)
 
+* When there's no .xml.bz2 files in drop/ but the title cache is
+  unreadable or otherwise unhappy, make an educated guess at whether
+  we can just generate one from an existing split.
+
 Long term?
 
 * A "Quick Install" script that checks for latest available titlecache.dat and
@@ -66,3 +67,7 @@ COMPLETED:
 * Search result paginating, to get all results.
 
 * Windows support.
+
+* When drop/ is empty, bzwikipedia assumes an empty dbname, so will try
+  to remove previous cache files. Instead, it should assume that whatever
+  db is in bzwikipedia.dat is currently bzip2recover-split in pdata/.
