@@ -37,6 +37,7 @@ var dat map[string]string
 var conf = map[string]string{
 	"listen":                 ":2012",
 	"drop_dir":               "drop",
+	"namespace_file":         "namespace.conf",
 	"data_dir":               "pdata",
 	"title_file":             "pdata/titlecache.dat",
 	"dat_file":               "pdata/bzwikipedia.dat",
@@ -1206,6 +1207,18 @@ func parseConfig(confname string) {
 	}
 }
 
+func parseNameSpaces(confname string) {
+	fromfile, err := confparse.ParseFile(confname)
+	if err != nil {
+		fmt.Printf("Unable to read namespace file '%s'\n", confname)
+		return
+	}
+
+	fmt.Printf("Read namespace file '%s'\n", confname)
+
+	wiki2html.ConfigureNameSpaces(fromfile)
+}
+
 type GracefulError string
 type RestartSignal string
 
@@ -1240,6 +1253,7 @@ func main() {
 	os.Chdir(dirname(os.Args[0]))
 
 	parseConfig("bzwikipedia.conf")
+	parseNameSpaces(conf["namespace_file"])
 
 	// Check for any new databases, including initial startup, and
 	// perform pre-processing.

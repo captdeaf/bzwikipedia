@@ -888,3 +888,7 @@ func Wiki2HTML(input string) (string, []string) {
 	res, _ := parseGeneral(binput, tokens, 0, nil, &mi)
 	return res, mi.refs
 }
+
+func ConfigureNameSpaces(input map[string]string) {
+	//DUMMY
+}
