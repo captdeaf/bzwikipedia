@@ -14,8 +14,6 @@ Features yet to do before bzwikipedia is "complete":
 
 * Write clean and usable html pages: For /, /wiki/*, and /search/*
 
-* Windows support.
-
 * Distribute executables.
 
 * Maybe a wrapper that can set up a quick bzwikipedia install?
@@ -66,3 +64,5 @@ COMPLETED:
   be. Also need to test for unicode: non-iso_8859-1 "alphanumeric" characters?
 
 * Search result paginating, to get all results.
+
+* Windows support.
