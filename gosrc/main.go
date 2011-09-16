@@ -327,7 +327,7 @@ func generateNewTitleFile() (string, string) {
 	dat_file_new := fmt.Sprintf("%v.new", conf["dat_file"])
 	dfout, derr := os.OpenFile(dat_file_new, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if derr != nil {
-		fmt.Printf("Unable to create '%v': %v", dat_file_new, derr)
+		fmt.Printf("Unable to create '%v': %v\n", dat_file_new, derr)
 		return "", ""
 	}
 	defer dfout.Close()
@@ -336,7 +336,7 @@ func generateNewTitleFile() (string, string) {
 	title_file_new := fmt.Sprintf("%v.new", conf["title_file"])
 	fout, err := os.OpenFile(title_file_new, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
-		fmt.Printf("Unable to create '%v': %v", title_file_new, derr)
+		fmt.Printf("Unable to create '%v': %v\n", title_file_new, derr)
 		return "", ""
 	}
 	defer fout.Close()
@@ -455,7 +455,7 @@ func generateNewTitleFile() (string, string) {
 // them if necessary.
 //
 func performUpdates() {
-	fmt.Printf("Checking for new .xml.bz2 files in '%v/'.", conf["drop_dir"])
+	fmt.Printf("Checking for new .xml.bz2 files in '%v/'.\n", conf["drop_dir"])
 	recent := getRecentDb()
 	if recent == "" {
 		fmt.Printf("No available database exists in '%v/'.\n", conf["drop_dir"])
@@ -874,7 +874,7 @@ func markRecent(uri string) {
 	// Put it all in the file.
 	dfout, derr := os.OpenFile(conf["recents_file"], os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if derr != nil {
-		fmt.Printf("Unable to create '%v': %v", conf["recents_file"], derr)
+		fmt.Printf("Unable to create '%v': %v\n", conf["recents_file"], derr)
 		return
 	}
 	defer dfout.Close()
