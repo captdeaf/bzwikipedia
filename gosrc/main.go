@@ -7,6 +7,7 @@ import (
 	"bzreader"
 	"confparse"
 	"exec"
+	"flag"
 	"fmt"
 	"http"
 	"loadfile"
@@ -37,6 +38,7 @@ var dat map[string]string
 var conf = map[string]string{
 	"listen":                 ":2012",
 	"drop_dir":               "drop",
+	"namespace_file":         "namespace.conf",
 	"data_dir":               "pdata",
 	"title_file":             "pdata/titlecache.dat",
 	"dat_file":               "pdata/bzwikipedia.dat",
@@ -325,7 +327,7 @@ func generateNewTitleFile() (string, string) {
 	dat_file_new := fmt.Sprintf("%v.new", conf["dat_file"])
 	dfout, derr := os.OpenFile(dat_file_new, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if derr != nil {
-		fmt.Printf("Unable to create '%v': %v", dat_file_new, derr)
+		fmt.Printf("Unable to create '%v': %v\n", dat_file_new, derr)
 		return "", ""
 	}
 	defer dfout.Close()
@@ -334,7 +336,7 @@ func generateNewTitleFile() (string, string) {
 	title_file_new := fmt.Sprintf("%v.new", conf["title_file"])
 	fout, err := os.OpenFile(title_file_new, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
-		fmt.Printf("Unable to create '%v': %v", title_file_new, derr)
+		fmt.Printf("Unable to create '%v': %v\n", title_file_new, derr)
 		return "", ""
 	}
 	defer fout.Close()
@@ -452,11 +454,12 @@ func generateNewTitleFile() (string, string) {
 // Check if any updates to the cached files are needed, and perform
 // them if necessary.
 //
-func performUpdates() {
-	fmt.Printf("Checking for new .xml.bz2 files in '%v/'.", conf["drop_dir"])
+func performUpdates() bool {
+	fmt.Printf("Checking for new .xml.bz2 files in '%v/'.\n", conf["drop_dir"])
 	recent := getRecentDb()
 	if recent == "" {
-		fmt.Println("No available database exists in '%v/'.", conf["drop_dir"])
+		fmt.Printf("No available database exists in '%v/'.\n", conf["drop_dir"])
+		return false
 	}
 	fmt.Println("Latest DB:", recent)
 
@@ -464,7 +467,7 @@ func performUpdates() {
 
 	if !docache {
 		fmt.Println("Cache update not required.")
-		return
+		return true
 	}
 
 	if dosplit {
@@ -487,6 +490,7 @@ func performUpdates() {
 	// We have now completed pre-processing! Yay!
 	// Let's celebrate by restarting to clear out memory.
 	panic(RestartSignal("Performing a full restart for efficiency."))
+	// No 'return true' required because we never get here
 }
 
 // Now we load the title cache file. We read it in as one huge lump.
@@ -872,7 +876,7 @@ func markRecent(uri string) {
 	// Put it all in the file.
 	dfout, derr := os.OpenFile(conf["recents_file"], os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if derr != nil {
-		fmt.Printf("Unable to create '%v': %v", conf["recents_file"], derr)
+		fmt.Printf("Unable to create '%v': %v\n", conf["recents_file"], derr)
 		return
 	}
 	defer dfout.Close()
@@ -1206,8 +1210,23 @@ func parseConfig(confname string) {
 	}
 }
 
+func parseNameSpaces(confname string) {
+	fromfile, err := confparse.ParseFile(confname)
+	if err != nil {
+		fmt.Printf("Unable to read namespace file '%s'\n", confname)
+		return
+	}
+
+	fmt.Printf("Read namespace file '%s'\n", confname)
+
+	wiki2html.ConfigureNameSpaces(fromfile)
+}
+
 type GracefulError string
 type RestartSignal string
+
+var conffile = flag.String("conf", "bzwikipedia.conf", "specify an alternate config file to use")
+var basedir = flag.String("basedir", "", "alternate dir to use as base to find conffile and other configured files from. defaults to where the executable lives")
 
 func main() {
 	// Defer this first to ensure cleanup gets done properly
@@ -1219,6 +1238,9 @@ func main() {
 	// but is the cleanest way to ensure no defers are skipped.
 	defer func() {
 		problem := recover()
+		if problem == nil {
+			return
+		}
 		switch problem.(type) {
 		case GracefulError:
 			fmt.Println(problem)
@@ -1236,18 +1258,29 @@ func main() {
 		}
 	}()
 
-	fmt.Println("Switching dir to", dirname(os.Args[0]))
-	os.Chdir(dirname(os.Args[0]))
+	flag.Parse()
 
-	parseConfig("bzwikipedia.conf")
+	if *basedir == "" {
+		*basedir = dirname(os.Args[0])
+	}
+
+	fmt.Println("Switching dir to", *basedir)
+	os.Chdir(*basedir)
+
+	parseConfig(*conffile)
+	parseNameSpaces(conf["namespace_file"])
 
 	// Check for any new databases, including initial startup, and
 	// perform pre-processing.
-	performUpdates()
+	hadFiles := performUpdates()
 
 	// Load in the title cache
 	if !loadTitleFile() {
-		fmt.Println("Unable to read Title cache file: Invalid format?")
+		if hadFiles {
+			fmt.Println("Unable to read Title cache file: Invalid format?")
+		} else {
+			fmt.Println("\n\nNo wiki files found and unable to read title cache.\n\nIf you never downloaded a wikipedia dump, you will have to do that now.\nIf you have, something went wrong or the cache format changed.\nYou will probably have to supply a new dump or put back your old one.")
+		}
 		return
 	}
 	prepSearchRoutines()
