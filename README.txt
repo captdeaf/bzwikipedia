@@ -33,14 +33,20 @@ Initial setup:
 
 2) Drop the .xml.bz2 you just downloaded into the drop/ directory.
 
-   If there is only one .xml.bz2 file, then bzwikipedia will use that. If
-   there is more than one, then bzwikipedia will use the one with the most
-   recent timestamp in the filename
-   (e.g: enwiki-20110803-pages-articles.xml.bz2)
+  If there is only one .xml.bz2 file, then bzwikipedia will use that. If
+  there is more than one, then bzwikipedia will use the one with the most
+  recent timestamp in the filename
+  (e.g: enwiki-20110803-pages-articles.xml.bz2)
 
 3) Optionally: Edit bzwikipedia.conf to fiddle with your own settings.
 
-4) Start the server:
+4) When using a different wiki: Edit namespace.conf to reflect that.
+
+  The default setup is for the English version of Wikipedia. For different
+  language versions of Wikipedia and/or different sites entirely (like
+  Wiktionary, for example) you'll need to make some changes here.
+
+5) Start the server:
 
   Linux: Run "StartWikiServer.sh"
 
