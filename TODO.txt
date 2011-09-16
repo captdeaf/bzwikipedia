@@ -5,8 +5,9 @@ Features yet to do before bzwikipedia is "complete":
   or generating the title cache, then just exit. If the old one is running
   the http server, then kill the old one.
 
-* Write a server-side wikimarkup->HTML formatter, so clients don't need
-  JavaScript in order to use bzw.
+* Write a server-side wikimarkup->HTML formatter, so clients don't
+  need JavaScript in order to use bzw. (In progress, but will still
+  require some degree of template support, mainly.)
 
 * Write clean and usable html pages: For /, /wiki/*, and /search/*
 
