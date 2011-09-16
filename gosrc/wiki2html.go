@@ -422,11 +422,27 @@ func parseEntities(input string) string {
 	})
 }
 
-var wikitokens = regexp.MustCompile("\\n\\*|\\n#|\\n|\\{\\{|\\}\\}|\\[|\\]|'''''|'''|''|=====|====|===|==|<source[^>]*>|</source>|<ref[^>]*>|</ref>|<code[^>]*>|</code>")
+var allTokens = []string{
+	"\\n\\*|\\n#|\\n",                  // Lists
+	"\\{\\{|\\}\\}",                    // Templates
+	"\\[|\\]",                          // Internal and external links.
+	"'''''|'''|''",                     // Bold+italic
+	"=====|====|===|==",                // Headings
+	"<source[^>]*>|</source>",          // Source code
+	"<ref[^>]*>|</ref>",                // References
+	"<code[^>]*>|</code>",              // Code examples
+	"<nowiki>|</nowiki>",               // Nowiki: Stuff inside is _not_ evaluated.
+	"<table[^>]*>|<tr[^>]*>|<td[^>]*>", // Tables
+	"</table>|</tr>|</td>",             // Tables
+	"<pre>|</pre>|<tt>|</tt>",          // raw HTML
+	"<span[^>]*>|<br[^>]*>",            // raw HTML
+}
+
+var tokenizer = regexp.MustCompile(strings.Join(allTokens, "|"))
 
 func tokenize(input []byte) []token {
 	// Find the location of all known tokens.
-	allIndexes := wikitokens.FindAllIndex(input, -1)
+	allIndexes := tokenizer.FindAllIndex(input, -1)
 
 	count := 0
 	lastIndex := 0
@@ -533,6 +549,14 @@ func parseTemplate(input []byte, tokens []token, i int, mi *markupInfo) (string,
 		return fmt.Sprintf("{{%s}}", body), eidx
 	}
 	return result, eidx
+}
+
+func parseNowiki(input []byte, tokens []token, i int, mi *markupInfo) (string, int) {
+	result := []string{}
+	for i = i + 1; i < len(tokens) && tokens[i].Val != "</nowiki>"; i++ {
+		result = append(result, tokens[i].Val)
+	}
+	return strings.Join(result, ""), i
 }
 
 func parseExternalLink(input []byte, tokens []token, i int, mi *markupInfo) (string, int) {
@@ -645,6 +669,11 @@ func parseHeader(input []byte, tokens []token, i int, mi *markupInfo) (string, i
 	return fmt.Sprintf("<h%d>%s</h%d>", x, body, x), eidx
 }
 
+// <pre>...</pre>, <tt>...</tt>, etc
+func parseHtml(input []byte, tokens []token, i int, mi *markupInfo, end string) (string, int) {
+	return fmt.Sprintf("%s", tokens[i].Val), i
+}
+
 // ''''' ... '''''
 func parseMarkup(input []byte, tokens []token, i int, mi *markupInfo) (string, int) {
 	start := i
@@ -752,7 +781,10 @@ func parseGeneral(input []byte, tokens []token, start int, endtokens []string, m
 					} else {
 						results = append(results, "\n<br />\n<br />")
 					}
-					i++
+					// Skip over successive newlines.
+					for i++; i < len(tokens) && tokens[i].Val == "\n"; i++ {
+					}
+					i--
 				} else {
 					results = append(results, "\n")
 				}
@@ -808,6 +840,15 @@ func parseGeneral(input []byte, tokens []token, start int, endtokens []string, m
 				body, eidx := parseReference(input, tokens, i, mi)
 				results = append(results, body)
 				i = eidx
+			case len(tokens[i].Val) > 7 && tokens[i].Val[0:7] == "<nowiki":
+				body, eidx := parseNowiki(input, tokens, i, mi)
+				results = append(results, body)
+				i = eidx
+				// The last case for html tags: <.*>, including pre, /pre, etc.
+			case len(tokens[i].Val) > 1 && tokens[i].Val[0:1] == "<":
+				body, eidx := parseHtml(input, tokens, i, mi, "</pre>")
+				results = append(results, body)
+				i = eidx
 			case tokens[i].Val == "]":
 				// This happens a lot. No biggie.
 				results = append(results, "]")
@@ -825,6 +866,7 @@ func parseGeneral(input []byte, tokens []token, start int, endtokens []string, m
 				} else {
 					fmt.Printf("Don't know what to do with token '%s'. No endtokens\n", tokens[i].Val)
 				}
+				results = append(results, unparseEntities(tokens[i].Val))
 			}
 		} else {
 			results = append(results, parsePlainText(string(tokens[i].Val)))
