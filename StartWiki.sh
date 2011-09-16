@@ -14,4 +14,4 @@ fi
 
 [ -f bzwikipedia ] || ln -s gosrc/bzwikipedia bzwikipedia
 
-./bzwikipedia
+./bzwikipedia --conf bzwikipedia.conf
