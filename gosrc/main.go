@@ -7,6 +7,7 @@ import (
 	"bzreader"
 	"confparse"
 	"exec"
+	"flag"
 	"fmt"
 	"http"
 	"loadfile"
@@ -1222,6 +1223,8 @@ func parseNameSpaces(confname string) {
 type GracefulError string
 type RestartSignal string
 
+var conffile = flag.String("conf", "bzwikipedia.conf", "specify an alternate config file to use")
+
 func main() {
 	// Defer this first to ensure cleanup gets done properly
 	// 
@@ -1249,10 +1252,12 @@ func main() {
 		}
 	}()
 
+	flag.Parse()
+
 	fmt.Println("Switching dir to", dirname(os.Args[0]))
 	os.Chdir(dirname(os.Args[0]))
 
-	parseConfig("bzwikipedia.conf")
+	parseConfig(*conffile)
 	parseNameSpaces(conf["namespace_file"])
 
 	// Check for any new databases, including initial startup, and
