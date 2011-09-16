@@ -1224,6 +1224,7 @@ type GracefulError string
 type RestartSignal string
 
 var conffile = flag.String("conf", "bzwikipedia.conf", "specify an alternate config file to use")
+var basedir = flag.String("basedir", "", "alternate dir to use as base to find conffile and other configured files from. defaults to where the executable lives")
 
 func main() {
 	// Defer this first to ensure cleanup gets done properly
@@ -1254,8 +1255,12 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Println("Switching dir to", dirname(os.Args[0]))
-	os.Chdir(dirname(os.Args[0]))
+	if *basedir == "" {
+		*basedir = dirname(os.Args[0])
+	}
+
+	fmt.Println("Switching dir to", *basedir)
+	os.Chdir(*basedir)
 
 	parseConfig(*conffile)
 	parseNameSpaces(conf["namespace_file"])
