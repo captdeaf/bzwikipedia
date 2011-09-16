@@ -454,11 +454,12 @@ func generateNewTitleFile() (string, string) {
 // Check if any updates to the cached files are needed, and perform
 // them if necessary.
 //
-func performUpdates() {
+func performUpdates() bool {
 	fmt.Printf("Checking for new .xml.bz2 files in '%v/'.\n", conf["drop_dir"])
 	recent := getRecentDb()
 	if recent == "" {
 		fmt.Printf("No available database exists in '%v/'.\n", conf["drop_dir"])
+		return false
 	}
 	fmt.Println("Latest DB:", recent)
 
@@ -466,7 +467,7 @@ func performUpdates() {
 
 	if !docache {
 		fmt.Println("Cache update not required.")
-		return
+		return true
 	}
 
 	if dosplit {
@@ -489,6 +490,7 @@ func performUpdates() {
 	// We have now completed pre-processing! Yay!
 	// Let's celebrate by restarting to clear out memory.
 	panic(RestartSignal("Performing a full restart for efficiency."))
+	// No 'return true' required because we never get here
 }
 
 // Now we load the title cache file. We read it in as one huge lump.
@@ -1236,6 +1238,9 @@ func main() {
 	// but is the cleanest way to ensure no defers are skipped.
 	defer func() {
 		problem := recover()
+		if problem == nil {
+			return
+		}
 		switch problem.(type) {
 		case GracefulError:
 			fmt.Println(problem)
@@ -1267,11 +1272,15 @@ func main() {
 
 	// Check for any new databases, including initial startup, and
 	// perform pre-processing.
-	performUpdates()
+	hadFiles := performUpdates()
 
 	// Load in the title cache
 	if !loadTitleFile() {
-		fmt.Println("Unable to read Title cache file: Invalid format?")
+		if hadFiles {
+			fmt.Println("Unable to read Title cache file: Invalid format?")
+		} else {
+			fmt.Println("\n\nNo wiki files found and unable to read title cache.\n\nIf you never downloaded a wikipedia dump, you will have to do that now.\nIf you have, something went wrong or the cache format changed.\nYou will probably have to supply a new dump or put back your old one.")
+		}
 		return
 	}
 	prepSearchRoutines()
