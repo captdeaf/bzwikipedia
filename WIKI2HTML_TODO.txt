@@ -1,0 +1,38 @@
+This TODO list just covers what's broken or needs implementing in the wiki to
+html converter.
+
+* The rest of the raw HTML tags.
+
+* There can be markup within markup. [[.. '''...''']].
+
+* Wiki tables: {| ... | ... | ... |- ... | ... |- ... |}
+
+* List fixing: It gets a little broken when it's followed by a nested tag.
+  (Usually a {{ ... template }})
+
+* Image: tags for images. (They're broken, but we may support a local image
+  mirror at some point)
+
+Template list:
+
+* cite journal, cite web, cite book
+
+* infobox
+
+* multiple image (From Ruby?raw=1)
+
+* convert (From Ruby?raw=1)
+
+* commons category
+
+* Jewellery (From Ruby?raw=1)
+
+* reflist|colwidth
+
+* about
+
+Future:
+
+* Idea: Turn (e.g: relative to wikipedia) image links into "Download this and
+  save it locally", which triggers a wget and bzwikipedia saves and indexes
+  it locally, then references it in the future.
