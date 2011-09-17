@@ -13,23 +13,29 @@ html converter.
 * Image: tags for images. (They're broken, but we may support a local image
   mirror at some point)
 
-Template list:
+* Templates:
+  These will account for probably most of the work, but will go a long
+  way towards looking good.
+  See also http://en.wikipedia.org/wiki/Help:Template
+  and http://en.wikipedia.org/wiki/Help:Magic_words 
+  and http://www.mediawiki.org/wiki/Help:Magic_words
 
-* cite journal, cite web, cite book
+** Make an effort to at least hide behavior switches
+   Many of these are relatively ignorable.
 
-* infobox
+** Implement <noinlude>, <includeonly>, <onlyinclude>
 
-* multiple image (From Ruby?raw=1)
+** Start interpreting and implementing variables
 
-* convert (From Ruby?raw=1)
+** Implement at least the core set of parser functions
 
-* commons category
+** Start actually inluding pages.
 
-* Jewellery (From Ruby?raw=1)
+*** This'll quickly need parameter support to be useful.
 
-* reflist|colwidth
-
-* about
+*** This probably warrants some degree of caching because includes can go
+    pretty deep. Though at least cache never invalidates until a new
+    dump is imported.
 
 Future:
 
