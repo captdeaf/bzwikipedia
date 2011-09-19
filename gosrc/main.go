@@ -29,7 +29,7 @@ import (
 var curdbname string
 
 // Current cache version.
-var current_cache_version = 3
+var current_cache_version = 4
 
 // Current bzwikipedia.dat info
 var dat map[string]string
@@ -46,8 +46,6 @@ var conf = map[string]string{
 	"wiki_template":          "web/wiki.html",
 	"search_template":        "web/searchresults.html",
 	"cache_type":             "mmap",
-	"cache_ignore_redirects": "true",
-	"cache_ignore_rx":        "^(File|Category|Wikipedia|MediaWiki|Templates|Portal):",
 	"search_routines":        "4",
 	"search_ignore_rx":       "",
 	"search_max_results":     "100",
@@ -154,21 +152,6 @@ func needUpdate(recent string) (bool, bool) {
 			if version < current_cache_version {
 				fmt.Printf("Version of the title cache file is %d.\n", version)
 				fmt.Printf("Wiping cache and replacing with version %d. This will take a while.\n", current_cache_version)
-				time.Sleep(5000000000)
-				return false, true
-			}
-			cic := conf["cache_ignore_redirects"] == "true"
-			cid := olddat["cache_ignore_redirects"] == "true"
-			if cic != cid {
-				fmt.Println("cache_ignore_redirects value has changed.")
-				fmt.Println("Wiping cache and regenerating.\n")
-				time.Sleep(5000000000)
-				return false, true
-			}
-
-			if conf["cache_ignore_rx"] != olddat["cache_ignore_rx"] {
-				fmt.Println("cache_ignore_rx value has changed.")
-				fmt.Println("Wiping cache and regenerating.\n")
 				time.Sleep(5000000000)
 				return false, true
 			}
@@ -341,24 +324,9 @@ func generateNewTitleFile() (string, string) {
 	}
 	defer fout.Close()
 
-	ignoreRedirects := conf["cache_ignore_redirects"] == "true"
-	var ignoreRx *regexp.Regexp = nil
-
-	irx := conf["cache_ignore_rx"]
-
-	if irx != "" {
-		ignoreRx = regexp.MustCompile(irx)
-	}
-
 	// Plop version and dbname into bzwikipedia.dat
 	fmt.Fprintf(dfout, "version:%d\n", current_cache_version)
 	fmt.Fprintf(dfout, "dbname:%v\n", curdbname)
-	fmt.Fprintf(dfout, "cache_ignore_rx:%v\n", irx)
-	if ignoreRedirects {
-		fmt.Fprintf(dfout, "cache_ignore_redirects:true\n")
-	} else {
-		fmt.Fprintf(dfout, "cache_ignore_redirects:false\n")
-	}
 
 	// Now read through all the bzip files looking for <title> bits.
 	bzr := bzreader.NewBzReader(conf["data_dir"], curdbname, 1)
@@ -379,8 +347,12 @@ func generateNewTitleFile() (string, string) {
 	// <title> without seeing <redirect, or we reach end of file.
 	//
 
-	var titleslice tdlist
-	var td *TitleData
+        // We use make() to force this to create an array of approximately
+        // how many items we'll need, so that go isn't constantly reallocating
+        // titleslice. 20 million should do it. (As of now, there are over
+        // 11 million articles, about half of which are redirects, in
+        // pages-articles
+	var titleslice = make([]TitleData, 0, 20000000)
 	for {
 		curindex := bzr.Index
 		if curindex >= nextprint {
@@ -404,10 +376,6 @@ func generateNewTitleFile() (string, string) {
 		idx := bytes.Index(bstr, []byte("<title>"))
 
 		if idx >= 0 {
-			if td != nil {
-				titleslice = append(titleslice, *td)
-				td = nil
-			}
 			eidx := bytes.Index(bstr, []byte("</title>"))
 			if eidx < 0 {
 				fmt.Printf("eidx is less than 0 for </title>?\n")
@@ -415,22 +383,14 @@ func generateNewTitleFile() (string, string) {
 				fmt.Printf("String is: '%s'\n", bstr)
 				panic("Can't find </title> tag - broken bz2?")
 			}
-			title := string(bstr[idx+7 : eidx])
-			if ignoreRx == nil || !ignoreRx.MatchString(title) {
-				td = &TitleData{Title: title, Start: curindex}
-			}
-		} else if ignoreRedirects && bytes.Index(bstr, []byte("<redirect")) >= 0 {
-			if td != nil {
-				// Discarding redirect.
-				td = nil
-			}
+                        titleslice = append(titleslice, TitleData {
+                              Title: string(bstr[idx+7 : eidx]),
+                              Start: curindex,
+                            })
 		}
 	}
-	if td != nil {
-		titleslice = append(titleslice, *td)
-	}
-	// Now sort titleslice.
-	titleslice.Sort()
+
+	tdlist(titleslice).Sort()
 
 	for _, i := range titleslice {
 		fmt.Fprintf(fout, "%c%s%c%d", TITLE_DELIM, i.Title, RECORD_DELIM, i.Start)
